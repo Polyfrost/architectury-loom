@@ -261,7 +261,7 @@ public final class RunConfigSettings implements Named {
 	 * Add the {@code -XstartOnFirstThread} JVM argument when on OSX.
 	 */
 	public void startFirstThread() {
-		if (OperatingSystem.getOS().equalsIgnoreCase("osx")) {
+		if (OperatingSystem.getOS().equalsIgnoreCase("osx") && !extension.hasLWJGL2()) {
 			vmArg("-XstartOnFirstThread");
 		}
 	}
@@ -278,7 +278,6 @@ public final class RunConfigSettings implements Named {
 	 * Configure run config with the default client options.
 	 */
 	public void client() {
-		startFirstThread();
 		environment("client");
 		defaultMainClass(getExtension().isForge() ? Constants.Forge.LAUNCH_TESTING : Constants.Knot.KNOT_CLIENT);
 	}

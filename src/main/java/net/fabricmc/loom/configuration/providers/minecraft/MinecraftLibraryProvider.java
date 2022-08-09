@@ -35,16 +35,26 @@ import net.fabricmc.loom.util.Constants;
 public class MinecraftLibraryProvider {
 	public File MINECRAFT_LIBS;
 
+	private boolean hasLWJGL2 = false;
+
 	public void provide(MinecraftProviderImpl minecraftProvider, Project project) {
 		MinecraftVersionMeta versionInfo = minecraftProvider.getVersionInfo();
 
 		initFiles(project, minecraftProvider);
 
+
+		boolean lwjgl2 = false;
 		for (MinecraftVersionMeta.Library library : versionInfo.libraries()) {
 			if (library.isValidForOS() && !library.hasNatives() && library.artifact() != null) {
 				project.getDependencies().add(Constants.Configurations.MINECRAFT_DEPENDENCIES, library.name());
+				lwjgl2 |= library.name().startsWith("org.lwjgl.lwjgl:lwjgl:2.");
 			}
 		}
+		hasLWJGL2 = lwjgl2;
+	}
+
+	public boolean hasLWJGL2() {
+		return hasLWJGL2;
 	}
 
 	private void initFiles(Project project, MinecraftProviderImpl minecraftProvider) {

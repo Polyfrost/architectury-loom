@@ -180,11 +180,11 @@ public final class CompileConfiguration {
 		Javadoc javadoc = (Javadoc) p.getTasks().getByName(JavaPlugin.JAVADOC_TASK_NAME);
 		javadoc.setClasspath(main.getOutput().plus(main.getCompileClasspath()));
 
-		p.afterEvaluate(project -> {
-			LoomGradleExtension extension = LoomGradleExtension.get(project);
+		LoomGradleExtension extension = LoomGradleExtension.get(p);
 
-			LoomDependencyManager dependencyManager = new LoomDependencyManager();
-			extension.setDependencyManager(dependencyManager);
+		LoomDependencyManager dependencyManager = new LoomDependencyManager();
+		extension.setDependencyManager(dependencyManager);
+		p.afterEvaluate(project -> {
 
 			dependencyManager.addProvider(new MinecraftProviderImpl(project));
 

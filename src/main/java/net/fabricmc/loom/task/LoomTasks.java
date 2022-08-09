@@ -130,6 +130,12 @@ public final class LoomTasks {
 		});
 
 		extension.getRunConfigs().create("client", RunConfigSettings::client);
+		project.afterEvaluate(p -> {
+			RunConfigSettings client = extension.getRunConfigs().findByName("client");
+			if (client != null) {
+				client.startFirstThread();
+			}
+		});
 		extension.getRunConfigs().create("server", RunConfigSettings::server);
 	}
 
