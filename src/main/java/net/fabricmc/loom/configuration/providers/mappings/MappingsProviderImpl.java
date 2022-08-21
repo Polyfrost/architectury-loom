@@ -29,6 +29,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.UncheckedIOException;
+import java.math.BigInteger;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
@@ -37,6 +38,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -582,16 +584,17 @@ public class MappingsProviderImpl extends DependencyProvider implements Mappings
 
 	public Path getIntermediaryTiny() throws IOException {
 		if (intermediaryTiny == null) {
-			intermediaryTiny = getMinecraftProvider().file("intermediary-v2.tiny").toPath();
+			String encodedMinecraftVersion = UrlEscapers.urlFragmentEscaper().escape(getMinecraftProvider().minecraftVersion());
+			String intermediaryArtifactUrl = getExtension().getIntermediaryUrl(encodedMinecraftVersion);
+			String sha1 = getSha1(intermediaryArtifactUrl);
+			intermediaryTiny = getMinecraftProvider().file("intermediary-v2-" + sha1 + ".tiny").toPath();
 
 			if (!Files.exists(intermediaryTiny) || (isRefreshDeps() && !hasRefreshed)) {
 				hasRefreshed = true;
 
 				// Download and extract intermediary
 				if (!getExtension().isLegacyForge()) {
-					String encodedMinecraftVersion = UrlEscapers.urlFragmentEscaper().escape(getMinecraftProvider().minecraftVersion());
-					String intermediaryArtifactUrl = getExtension().getIntermediaryUrl(encodedMinecraftVersion);
-					File intermediaryJar = getMinecraftProvider().file("intermediary-v2.jar");
+					File intermediaryJar = getMinecraftProvider().file("intermediary-v2" + sha1 + ".jar");
 					DownloadUtil.downloadIfChanged(new URL(intermediaryArtifactUrl), intermediaryJar, getProject().getLogger());
 					extractMappings(intermediaryJar.toPath(), intermediaryTiny);
 				} else {
@@ -601,6 +604,18 @@ public class MappingsProviderImpl extends DependencyProvider implements Mappings
 		}
 
 		return intermediaryTiny;
+	}
+
+	private String getSha1(String value) {
+		try {
+			MessageDigest digest = MessageDigest.getInstance("SHA-1");
+			digest.reset();
+			digest.update(value.getBytes(StandardCharsets.UTF_8));
+			return String.format("%040x", new BigInteger(1, digest.digest()));
+		} catch (Exception e){
+			e.printStackTrace();
+			return "";
+		}
 	}
 
 	private void generateDummyIntermediary(Logger logger, Path tinyV2) throws IOException {
