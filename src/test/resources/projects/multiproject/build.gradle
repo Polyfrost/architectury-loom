@@ -1,11 +1,11 @@
 plugins {
 	id "java"
 	id "java-library"
-	id 'gg.essential.loom' apply false
+	id 'cc.polyfrost.loom' apply false
 }
 
 allprojects {
-	apply plugin: "gg.essential.loom"
+	apply plugin: "cc.polyfrost.loom"
 
 	version = "1.0.0"
 
