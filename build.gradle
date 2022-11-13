@@ -276,7 +276,7 @@ publishing {
 	}
 	
 	repositories {
-		if (true) {
+		if (project.hasProperty("releasesUsername") && project.hasProperty("releasesPassword")) {
 			maven {
 				url = "https://repo.polyfrost.cc/releases"
 				name = "polyfrost"
