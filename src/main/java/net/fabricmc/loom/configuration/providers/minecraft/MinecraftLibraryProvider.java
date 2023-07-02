@@ -160,4 +160,8 @@ public class MinecraftLibraryProvider {
 			md.setTransitive(false);
 		}
 	}
+
+	public LibraryProcessorManager getProcessorManager() {
+		return processorManager;
+	}
 }
