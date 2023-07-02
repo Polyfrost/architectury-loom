@@ -26,6 +26,4 @@ jobs:
         with:
           java-version: 17
       - name: Upload to Maven
-        run: ./gradlew publish --stacktrace
-        env:
-          MAVEN_PASS: ${{ secrets.MAVEN_PASS }}
+        run: ./gradlew publish -Pnexus_user=${{ secrets.NEXUS_USER }} -Pnexus_password=${{ secrets.NEXUS_PASSWORD }} --stacktrace

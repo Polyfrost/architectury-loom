@@ -91,7 +91,7 @@ import net.fabricmc.mappingio.tree.MemoryMappingTree;
 
 public class MinecraftPatchedProvider {
 	private static final String LOOM_PATCH_VERSION_KEY = "Loom-Patch-Version";
-	private static final String CURRENT_LOOM_PATCH_VERSION = "8";
+	private static final String CURRENT_LOOM_PATCH_VERSION = "8+essential.1";
 	private static final String NAME_MAPPING_SERVICE_PATH = "/inject/META-INF/services/cpw.mods.modlauncher.api.INameMappingService";
 
 	protected final Project project;

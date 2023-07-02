@@ -26,16 +26,24 @@ package net.fabricmc.loom.configuration.providers.forge.fg2;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.jar.Attributes;
+import java.util.jar.Manifest;
 import java.util.stream.Stream;
 
 import com.google.common.base.Stopwatch;
@@ -175,9 +183,49 @@ public class MinecraftLegacyPatchedProvider extends MinecraftPatchedProvider {
 
 		Files.copy(getExtension().getForgeUniversalProvider().getForge().toPath(), forgeJar, StandardCopyOption.REPLACE_EXISTING);
 
-		// For the development environment, we need to remove the binpatches, otherwise forge will try to re-apply them
 		try (FileSystemUtil.Delegate fs = FileSystemUtil.getJarFileSystem(forgeJar, false)) {
+			// For the development environment, we need to remove the binpatches, otherwise forge will try to re-apply them
 			Files.delete(fs.get().getPath("binpatches.pack.lzma"));
+
+			// We also need to remove Forge's jar signature data
+			// Based off https://github.com/FabricMC/tiny-remapper/blob/7f341dcbf1bae754ba992f0b0f127566f347f37f/src/main/java/net/fabricmc/tinyremapper/MetaInfFixer.java
+			Files.walkFileTree(fs.get().getPath("META-INF"), new SimpleFileVisitor<>() {
+				@Override
+				public FileVisitResult visitFile(Path path, BasicFileAttributes attributes) throws IOException {
+					String fileName = path.getFileName().toString();
+
+					if (fileName.endsWith(".SF") || fileName.endsWith(".DSA") || fileName.endsWith(".RSA") || fileName.endsWith(".EC") || fileName.startsWith("SIG-")) {
+						Files.delete(path);
+					} else if (path.getNameCount() == 2 && fileName.equals("MANIFEST.MF")) {
+						Manifest manifest = new Manifest();
+
+						try (InputStream is = Files.newInputStream(path)) {
+							manifest.read(is);
+						}
+
+						for (Iterator<Attributes> it = manifest.getEntries().values().iterator(); it.hasNext(); ) {
+							Attributes attrs = it.next();
+
+							for (Iterator<Object> it2 = attrs.keySet().iterator(); it2.hasNext(); ) {
+								Attributes.Name attrName = (Attributes.Name) it2.next();
+								String name = attrName.toString();
+
+								if (name.endsWith("-Digest") || name.contains("-Digest-") || name.equals("Magic")) {
+									it2.remove();
+								}
+							}
+
+							if (attrs.isEmpty()) it.remove();
+						}
+
+						try (OutputStream os = Files.newOutputStream(path)) {
+							manifest.write(os);
+						}
+					}
+
+					return FileVisitResult.CONTINUE;
+				}
+			});
 		}
 
 		// Older versions of Forge rely on utility classes from log4j-core 2.0-beta9 but we'll upgrade the runtime to a
