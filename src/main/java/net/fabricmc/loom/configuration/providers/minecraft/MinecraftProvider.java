@@ -264,6 +264,10 @@ public abstract class MinecraftProvider {
 		return versionInfo;
 	}
 
+	public MinecraftLibraryProvider getLibraryProvider() {
+		return libraryProvider;
+	}
+
 	public String getJarPrefix() {
 		return jarPrefix;
 	}
