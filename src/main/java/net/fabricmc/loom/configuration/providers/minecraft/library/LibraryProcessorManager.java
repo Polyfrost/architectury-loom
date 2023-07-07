@@ -122,7 +122,10 @@ public class LibraryProcessorManager {
 
 		boolean lwjgl2 = false;
 		for (Library library : libraries) {
-			lwjgl2 |= library.name().startsWith("org.lwjgl.lwjgl:lwjgl:2.");
+			lwjgl2 = library.name().startsWith("org.lwjgl.lwjgl:lwjgl:2.");
+			if (lwjgl2) {
+				break;
+			}
 		}
 		hasLWJGL2 = lwjgl2;
 

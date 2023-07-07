@@ -36,6 +36,7 @@ import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.plugins.PluginAware;
 import org.jetbrains.annotations.NotNull;
 
+import net.fabricmc.loom.configuration.providers.minecraft.library.LibraryContext;
 import net.fabricmc.loom.extension.LoomFiles;
 import net.fabricmc.loom.util.MirrorUtil;
 
@@ -146,8 +147,8 @@ public class LoomRepositoryPlugin implements Plugin<PluginAware> {
 		});
 	}
 
-	public static void forceLWJGLFromMavenCentral(RepositoryHandler repositories) {
-		if (repositories.findByName("MavenCentralLWJGL") != null) {
+	public static void forceLWJGLFromMavenCentral(RepositoryHandler repositories, LibraryContext context) {
+		if (repositories.findByName("MavenCentralLWJGL") != null && !context.usesLWJGL3()) {
 			// Already applied.
 			return;
 		}
