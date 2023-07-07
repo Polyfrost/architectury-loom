@@ -28,7 +28,7 @@ archivesBaseName = project.name
 def baseVersion = '1.2'
 
 def ENV = System.getenv()
-version = baseVersion + ".polyfrost.2"
+version = baseVersion + ".polyfrost.3"
 
 logger.lifecycle(":building plugin v${version}")
 
