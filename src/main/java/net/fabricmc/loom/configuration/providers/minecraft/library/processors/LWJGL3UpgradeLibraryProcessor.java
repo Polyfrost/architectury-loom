@@ -80,7 +80,7 @@ public class LWJGL3UpgradeLibraryProcessor extends LibraryProcessor {
 
 	@Override
 	public void applyRepositories(RepositoryHandler repositories) {
-		LoomRepositoryPlugin.forceLWJGLFromMavenCentral(repositories);
+		LoomRepositoryPlugin.forceLWJGLFromMavenCentral(repositories, context);
 	}
 
 	// Add support for macOS
