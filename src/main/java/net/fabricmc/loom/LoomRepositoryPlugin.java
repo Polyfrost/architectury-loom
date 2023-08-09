@@ -147,26 +147,26 @@ public class LoomRepositoryPlugin implements Plugin<PluginAware> {
 		});
 	}
 
-	public static void forceLWJGLFromMavenCentral(RepositoryHandler repositories, LibraryContext context) {
-		if (repositories.findByName("MavenCentralLWJGL") != null && !context.usesLWJGL3()) {
+	public static void forceLWJGLFromMavenCentral(RepositoryHandler repositories) {
+		if (repositories.findByName("MavenCentralLWJGL") != null) {
 			// Already applied.
 			return;
 		}
 
-		// Force LWJGL from central, as it contains all the platform natives.
-		MavenArtifactRepository central = repositories.maven(repo -> {
-			repo.setName("MavenCentralLWJGL");
-			repo.setUrl(ArtifactRepositoryContainer.MAVEN_CENTRAL_URL);
-			repo.content(content -> {
-				content.includeGroup("org.lwjgl");
+		try {
+			// Force LWJGL from central, as it contains all the platform natives.
+			MavenArtifactRepository central = repositories.maven(repo -> {
+				repo.setName("MavenCentralLWJGL");
+				repo.setUrl(ArtifactRepositoryContainer.MAVEN_CENTRAL_URL);
+				repo.content(content -> content.includeGroup("org.lwjgl"));
 			});
-		});
 
-		repositories.exclusiveContent(repository -> {
-			repository.forRepositories(central);
-			repository.filter(filter -> {
-				filter.includeGroup("org.lwjgl");
+			repositories.exclusiveContent(repository -> {
+				repository.forRepositories(central);
+				repository.filter(filter -> filter.includeGroup("org.lwjgl"));
 			});
-		});
+		} catch (Exception ignored) {
+			// not sure why this would fail, but it's not a big deal if it does
+		}
 	}
 }

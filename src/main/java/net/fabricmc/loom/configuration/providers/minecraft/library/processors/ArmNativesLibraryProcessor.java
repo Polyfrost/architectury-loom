@@ -101,6 +101,6 @@ public class ArmNativesLibraryProcessor extends LibraryProcessor {
 
 	@Override
 	public void applyRepositories(RepositoryHandler repositories) {
-		LoomRepositoryPlugin.forceLWJGLFromMavenCentral(repositories, context);
+		LoomRepositoryPlugin.forceLWJGLFromMavenCentral(repositories);
 	}
 }
