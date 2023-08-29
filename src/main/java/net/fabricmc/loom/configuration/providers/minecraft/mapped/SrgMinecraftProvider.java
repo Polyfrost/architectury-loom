@@ -27,9 +27,9 @@ package net.fabricmc.loom.configuration.providers.minecraft.mapped;
 import java.util.List;
 
 import dev.architectury.tinyremapper.TinyRemapper;
+import org.gradle.api.Project;
 
 import net.fabricmc.loom.api.mappings.layered.MappingsNamespace;
-import net.fabricmc.loom.configuration.ConfigContext;
 import net.fabricmc.loom.configuration.providers.minecraft.MergedMinecraftProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.MinecraftProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.SingleJarEnvType;
@@ -38,8 +38,8 @@ import net.fabricmc.loom.configuration.providers.minecraft.SplitMinecraftProvide
 import net.fabricmc.loom.util.SidedClassVisitor;
 
 public abstract sealed class SrgMinecraftProvider<M extends MinecraftProvider> extends AbstractMappedMinecraftProvider<M> permits SrgMinecraftProvider.MergedImpl, SrgMinecraftProvider.SingleJarImpl, SrgMinecraftProvider.SplitImpl {
-	public SrgMinecraftProvider(ConfigContext configContext, M minecraftProvider) {
-		super(configContext, minecraftProvider);
+	public SrgMinecraftProvider(Project project, M minecraftProvider) {
+		super(project, minecraftProvider);
 	}
 
 	@Override
@@ -53,8 +53,8 @@ public abstract sealed class SrgMinecraftProvider<M extends MinecraftProvider> e
 	}
 
 	public static final class MergedImpl extends SrgMinecraftProvider<MergedMinecraftProvider> implements Merged {
-		public MergedImpl(ConfigContext configContext, MergedMinecraftProvider minecraftProvider) {
-			super(configContext, minecraftProvider);
+		public MergedImpl(Project project, MergedMinecraftProvider minecraftProvider) {
+			super(project, minecraftProvider);
 		}
 
 		@Override
@@ -66,8 +66,8 @@ public abstract sealed class SrgMinecraftProvider<M extends MinecraftProvider> e
 	}
 
 	public static final class SplitImpl extends SrgMinecraftProvider<SplitMinecraftProvider> implements Split {
-		public SplitImpl(ConfigContext configContext, SplitMinecraftProvider minecraftProvider) {
-			super(configContext, minecraftProvider);
+		public SplitImpl(Project project, SplitMinecraftProvider minecraftProvider) {
+			super(project, minecraftProvider);
 		}
 
 		@Override
@@ -89,17 +89,17 @@ public abstract sealed class SrgMinecraftProvider<M extends MinecraftProvider> e
 	public static final class SingleJarImpl extends SrgMinecraftProvider<SingleJarMinecraftProvider> implements SingleJar {
 		private final SingleJarEnvType env;
 
-		private SingleJarImpl(ConfigContext configContext, SingleJarMinecraftProvider minecraftProvider, SingleJarEnvType env) {
-			super(configContext, minecraftProvider);
+		private SingleJarImpl(Project project, SingleJarMinecraftProvider minecraftProvider, SingleJarEnvType env) {
+			super(project, minecraftProvider);
 			this.env = env;
 		}
 
-		public static SingleJarImpl server(ConfigContext configContext, SingleJarMinecraftProvider minecraftProvider) {
-			return new SingleJarImpl(configContext, minecraftProvider, SingleJarEnvType.SERVER);
+		public static SingleJarImpl server(Project project, SingleJarMinecraftProvider minecraftProvider) {
+			return new SingleJarImpl(project, minecraftProvider, SingleJarEnvType.SERVER);
 		}
 
-		public static SingleJarImpl client(ConfigContext configContext, SingleJarMinecraftProvider minecraftProvider) {
-			return new SingleJarImpl(configContext, minecraftProvider, SingleJarEnvType.CLIENT);
+		public static SingleJarImpl client(Project project, SingleJarMinecraftProvider minecraftProvider) {
+			return new SingleJarImpl(project, minecraftProvider, SingleJarEnvType.CLIENT);
 		}
 
 		@Override

@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 import net.fabricmc.loom.api.mappings.intermediate.IntermediateMappingsProvider;
 
 public abstract class IntermediaryMappingsProvider extends IntermediateMappingsProvider {
+	public static final String NAME = "intermediary-v2";
 	private static final Logger LOGGER = LoggerFactory.getLogger(IntermediateMappingsProvider.class);
 
 	public abstract Property<String> getIntermediaryUrl();
@@ -73,7 +74,7 @@ public abstract class IntermediaryMappingsProvider extends IntermediateMappingsP
 	public @NotNull String getName() {
 		final String encodedMcVersion = UrlEscapers.urlFragmentEscaper().escape(getMinecraftVersion().get());
 		final String url = getIntermediaryUrl().get().formatted(encodedMcVersion);
-		return "intermediary-v2-" + getSha1(url);
+		return NAME + "-" + getSha1(url);
 	}
 
 	private String getSha1(String value) {

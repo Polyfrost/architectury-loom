@@ -25,12 +25,12 @@
 package net.fabricmc.loom.configuration.decompile;
 
 import java.io.File;
-import java.nio.file.Path;
 import java.util.List;
 
 import net.fabricmc.loom.LoomGradleExtension;
 import net.fabricmc.loom.configuration.ConfigContext;
 import net.fabricmc.loom.configuration.providers.forge.MinecraftPatchedProvider;
+import net.fabricmc.loom.configuration.providers.minecraft.MinecraftJar;
 import net.fabricmc.loom.configuration.providers.minecraft.MinecraftJarConfiguration;
 import net.fabricmc.loom.configuration.providers.minecraft.mapped.MappedMinecraftProvider;
 import net.fabricmc.loom.task.GenerateForgePatchedSourcesTask;
@@ -44,36 +44,25 @@ public class SingleJarDecompileConfiguration extends DecompileConfiguration<Mapp
 
 	@Override
 	public final void afterEvaluation() {
-		List<Path> minecraftJars = minecraftProvider.getMinecraftJarPaths();
+		final List<MinecraftJar> minecraftJars = minecraftProvider.getMinecraftJars();
 		assert minecraftJars.size() == 1;
-
-		final File namedJar = minecraftJars.get(0).toFile();
-
-		File mappedJar = namedJar;
-
-		if (mappingConfiguration.hasUnpickDefinitions()) {
-			File outputJar = new File(extension.getMappingConfiguration().mappingsWorkingDir().toFile(), "minecraft-unpicked.jar");
-			createUnpickJarTask("unpickJar", namedJar, outputJar);
-
-			mappedJar = outputJar;
-		}
-
-		final File inputJar = mappedJar;
+		final MinecraftJar minecraftJar = minecraftJars.get(0);
 
 		LoomGradleExtension.get(project).getDecompilerOptions().forEach(options -> {
 			final String decompilerName = options.getFormattedName();
 			String taskName = "genSourcesWith" + decompilerName;
 			// Decompiler will be passed to the constructor of GenerateSourcesTask
 			project.getTasks().register(taskName, GenerateSourcesTask.class, options).configure(task -> {
-				task.getInputJar().set(inputJar);
-				task.getRuntimeJar().set(namedJar);
+				task.getInputJarName().set(minecraftJar.getName());
+				task.getOutputJar().fileValue(GenerateSourcesTask.getMappedJarFileWithSuffix("-sources.jar", minecraftJar.getPath()));
 
 				task.dependsOn(project.getTasks().named("validateAccessWidener"));
 				task.setDescription("Decompile minecraft using %s.".formatted(decompilerName));
 				task.setGroup(Constants.TaskGroup.FABRIC);
 
 				if (mappingConfiguration.hasUnpickDefinitions()) {
-					task.dependsOn(project.getTasks().named("unpickJar"));
+					final File outputJar = new File(extension.getMappingConfiguration().mappingsWorkingDir().toFile(), "minecraft-unpicked.jar");
+					configureUnpick(task, outputJar);
 				}
 			});
 		});
@@ -92,7 +81,7 @@ public class SingleJarDecompileConfiguration extends DecompileConfiguration<Mapp
 				task.setGroup(Constants.TaskGroup.FABRIC);
 
 				task.getInputJar().set(MinecraftPatchedProvider.get(project).getMinecraftSrgJar().toFile());
-				task.getRuntimeJar().set(inputJar);
+				task.getRuntimeJar().set(minecraftJar.toFile());
 			});
 		}
 	}

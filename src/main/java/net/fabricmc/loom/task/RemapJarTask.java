@@ -31,7 +31,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -165,6 +164,10 @@ public abstract class RemapJarTask extends AbstractRemapJarTask {
 		if (getLoomExtension().multiProjectOptimisation()) {
 			setupPreparationTask();
 		}
+
+		// Make outputs reproducible by default
+		setReproducibleFileOrder(true);
+		setPreserveFileTimestamps(false);
 	}
 
 	private void setupPreparationTask() {
@@ -427,7 +430,7 @@ public abstract class RemapJarTask extends AbstractRemapJarTask {
 				return;
 			}
 
-			Set<File> jars = new HashSet<>(nestedJars.getFiles());
+			Set<File> jars = new LinkedHashSet<>(nestedJars.getFiles());
 			jars.addAll(forgeNestedJars.get().stream().map(NestedFile::file).toList());
 			JarNester.nestJars(jars, forgeNestedJars.getOrElse(List.of()), outputFile.toFile(), getParameters().getPlatform().get(), LOGGER);
 		}

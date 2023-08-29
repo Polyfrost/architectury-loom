@@ -48,6 +48,7 @@ import net.fabricmc.loom.util.PropertyUtil;
 import net.fabricmc.loom.util.aw2at.Aw2At;
 import net.fabricmc.loom.util.gradle.GradleUtils;
 import net.fabricmc.loom.util.gradle.SourceSetHelper;
+import net.fabricmc.loom.util.gradle.SyncTaskBuildService;
 
 public abstract class RemapTaskConfiguration implements Runnable {
 	public static final String REMAP_JAR_TASK_NAME = "remapJar";
@@ -67,6 +68,8 @@ public abstract class RemapTaskConfiguration implements Runnable {
 
 	public void run() {
 		final LoomGradleExtension extension = LoomGradleExtension.get(getProject());
+
+		SyncTaskBuildService.register(getProject());
 
 		if (GradleUtils.getBooleanProperty(getProject(), Constants.Properties.DONT_REMAP)) {
 			extension.getUnmappedModCollection().from(getTasks().getByName(JavaPlugin.JAR_TASK_NAME));

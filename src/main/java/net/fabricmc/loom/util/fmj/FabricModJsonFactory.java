@@ -175,6 +175,16 @@ public final class FabricModJsonFactory {
 		return ZipUtils.contains(input, FABRIC_MOD_JSON);
 	}
 
+	public static boolean isNestableModJar(File file, ModPlatform platform) {
+		return isNestableModJar(file.toPath(), platform);
+	}
+
+	public static boolean isNestableModJar(Path input, ModPlatform platform) {
+		// Forge don't care if the main jar is mod jar.
+		if (platform == ModPlatform.FORGE) return true;
+		return isModJar(input, platform);
+	}
+
 	public static boolean containsMod(FileSystemUtil.Delegate fs, ModPlatform platform) {
 		if (Files.exists(fs.getPath("architectury.common.marker"))) {
 			return true;

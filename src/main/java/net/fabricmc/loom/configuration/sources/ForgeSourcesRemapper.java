@@ -82,7 +82,7 @@ public class ForgeSourcesRemapper {
 			minecraftJar = minecraftJars.get(0);
 		}
 
-		Path sourcesJar = GenerateSourcesTask.getMappedJarFileWithSuffix(minecraftJar.toFile(), "-sources.jar").toPath();
+		Path sourcesJar = GenerateSourcesTask.getMappedJarFileWithSuffix("-sources.jar", minecraftJar).toPath();
 
 		if (!Files.exists(sourcesJar)) {
 			try (var serviceManager = new ScopedSharedServiceManager()) {

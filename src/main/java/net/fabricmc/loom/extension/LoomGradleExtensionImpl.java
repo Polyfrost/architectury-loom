@@ -35,6 +35,7 @@ import com.google.common.base.Suppliers;
 import org.gradle.api.Project;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.FileCollection;
+import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Provider;
 
 import net.fabricmc.loom.LoomGradleExtension;
@@ -49,6 +50,7 @@ import net.fabricmc.loom.configuration.providers.forge.ForgeRunsProvider;
 import net.fabricmc.loom.configuration.providers.mappings.IntermediaryMappingsProvider;
 import net.fabricmc.loom.configuration.providers.mappings.MappingConfiguration;
 import net.fabricmc.loom.configuration.providers.minecraft.MinecraftProvider;
+import net.fabricmc.loom.configuration.providers.minecraft.library.LibraryProcessorManager;
 import net.fabricmc.loom.configuration.providers.minecraft.mapped.IntermediaryMinecraftProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.mapped.NamedMinecraftProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.mapped.SrgMinecraftProvider;
@@ -76,6 +78,7 @@ public class LoomGradleExtensionImpl extends LoomGradleExtensionApiImpl implemen
 	private InstallerData installerData;
 	private boolean refreshDeps;
 	private Provider<Boolean> multiProjectOptimisation;
+	private final ListProperty<LibraryProcessorManager.LibraryProcessorFactory> libraryProcessorFactories;
 
 	// +-------------------+
 	// | Architectury Loom |
@@ -103,6 +106,9 @@ public class LoomGradleExtensionImpl extends LoomGradleExtensionApiImpl implemen
 
 		refreshDeps = manualRefreshDeps();
 		multiProjectOptimisation = GradleUtils.getBooleanPropertyProvider(project, Constants.Properties.MULTI_PROJECT_OPTIMISATION);
+		libraryProcessorFactories = project.getObjects().listProperty(LibraryProcessorManager.LibraryProcessorFactory.class);
+		libraryProcessorFactories.addAll(LibraryProcessorManager.DEFAULT_LIBRARY_PROCESSORS);
+		libraryProcessorFactories.finalizeValueOnRead();
 
 		if (refreshDeps) {
 			project.getLogger().lifecycle("Refresh dependencies is in use, loom will be significantly slower.");
@@ -260,6 +266,11 @@ public class LoomGradleExtensionImpl extends LoomGradleExtensionApiImpl implemen
 	@Override
 	public boolean multiProjectOptimisation() {
 		return multiProjectOptimisation.getOrElse(false);
+	}
+
+	@Override
+	public ListProperty<LibraryProcessorManager.LibraryProcessorFactory> getLibraryProcessors() {
+		return libraryProcessorFactories;
 	}
 
 	@Override

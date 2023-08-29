@@ -8,7 +8,7 @@ plugins {
 	id 'checkstyle'
 	id 'jacoco'
 	id 'codenarc'
-	id "org.jetbrains.kotlin.jvm" version "1.8.20" // Must match the version included with gradle.
+	alias(libs.plugins.kotlin)
 	id "com.diffplug.spotless" version "6.18.0"
 	id "org.gradle.test-retry" version "1.5.2"
 }
@@ -25,12 +25,18 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
 
 group = "gg.essential"
 archivesBaseName = project.name
-def baseVersion = '1.2'
+def baseVersion = '1.3'
 
 def ENV = System.getenv()
-version = baseVersion + ".polyfrost.4"
+version = baseVersion + ".polyfrost.1"
 
 logger.lifecycle(":building plugin v${version}")
+
+// We must build against the version of Kotlin Gradle ships with.
+def kotlinVersion = KotlinDslVersion.current().getKotlinVersion()
+if (libs.versions.kotlin.get() != kotlinVersion) {
+	throw new IllegalStateException("Requires Kotlin version: ${kotlinVersion}")
+}
 
 repositories {
 	mavenCentral()
@@ -84,7 +90,7 @@ dependencies {
 	}
 
 	// tinyfile management
-	implementation ('dev.architectury:tiny-remapper:1.8.20')
+	implementation ('dev.architectury:tiny-remapper:1.9.21')
 	implementation 'net.fabricmc:access-widener:2.1.0'
 	implementation 'net.fabricmc:mapping-io:0.2.1'
 
@@ -95,7 +101,7 @@ dependencies {
 
 	// decompilers
 	implementation ('net.fabricmc:fabric-fernflower:2.0.0')
-	implementation ('net.fabricmc:cfr:0.2.0')
+	implementation ('net.fabricmc:cfr:0.2.1')
 
 	// source code remapping
 	implementation ('dev.architectury:mercury:0.1.2.15')
@@ -106,7 +112,7 @@ dependencies {
 	}
 
 	// Kapt integration
-	compileOnly('org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.20') // Must match the version included with gradle.
+	compileOnly libs.kotlin.gradle.plugin
 
 	// Forge patches
 	implementation ('net.minecraftforge:installertools:1.2.0')
@@ -132,6 +138,8 @@ dependencies {
 		exclude group: 'org.jetbrains.kotlin'
 	}
 	testImplementation 'org.mockito:mockito-core:5.2.0'
+	testImplementation 'com.microsoft.java:com.microsoft.java.debug.core:0.46.0'
+
 	runtimeOnly 'dev.architectury.architectury-pack200:dev.architectury.architectury-pack200.gradle.plugin:0.1.3'
 
 	compileOnly 'org.jetbrains:annotations:24.0.1'
@@ -241,6 +249,7 @@ test {
 	}
 }
 
+import org.gradle.launcher.cli.KotlinDslVersion
 import org.gradle.util.GradleVersion
 
 publishing {

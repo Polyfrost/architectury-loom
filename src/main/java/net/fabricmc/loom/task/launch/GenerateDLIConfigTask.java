@@ -144,14 +144,15 @@ public abstract class GenerateDLIConfigTask extends AbstractLoomTask {
 			}
 
 			ForgeRunsProvider forgeRunsProvider = getExtension().getForgeRunsProvider();
+			ConfigValue.Resolver configResolver = forgeRunsProvider.getResolver(null);
 
 			for (ForgeRunTemplate template : forgeRunsProvider.getTemplates()) {
 				for (ConfigValue argument : template.args()) {
-					launchConfig.argument(template.name(), argument.resolve(forgeRunsProvider));
+					launchConfig.argument(template.name(), argument.resolve(configResolver));
 				}
 
 				for (Map.Entry<String, ConfigValue> property : template.props().entrySet()) {
-					launchConfig.property(template.name(), property.getKey(), property.getValue().resolve(forgeRunsProvider));
+					launchConfig.property(template.name(), property.getKey(), property.getValue().resolve(configResolver));
 				}
 			}
 		}
@@ -177,6 +178,7 @@ public abstract class GenerateDLIConfigTask extends AbstractLoomTask {
 		final boolean plainConsole = getProject().getGradle().getStartParameter().getConsoleOutput() == ConsoleOutput.Plain;
 		final boolean ansiSupportedIDE = new File(getProject().getRootDir(), ".vscode").exists()
 				|| new File(getProject().getRootDir(), ".idea").exists()
+				|| new File(getProject().getRootDir(), ".project").exists()
 				|| (Arrays.stream(getProject().getRootDir().listFiles()).anyMatch(file -> file.getName().endsWith(".iws")));
 
 		//Enable ansi by default for idea and vscode when gradle is not ran with plain console.

@@ -43,7 +43,7 @@ import net.fabricmc.loom.configuration.providers.minecraft.library.processors.Ru
 import net.fabricmc.loom.util.Platform;
 
 public class LibraryProcessorManager {
-	private static final List<LibraryProcessorFactory<?>> LIBRARY_PROCESSORS = List.of(
+	public static final List<LibraryProcessorFactory> DEFAULT_LIBRARY_PROCESSORS = List.of(
 			ArmNativesLibraryProcessor::new,
 			LegacyASMLibraryProcessor::new,
 			LoomNativeSupportLibraryProcessor::new,
@@ -55,23 +55,26 @@ public class LibraryProcessorManager {
 
 	private final Platform platform;
 	private final RepositoryHandler repositories;
+	private final List<LibraryProcessorFactory> libraryProcessorFactories;
 	private final List<String> enabledProcessors;
 	private boolean hasLWJGL2;
 
-	public LibraryProcessorManager(Platform platform, RepositoryHandler repositories, List<String> enabledProcessors) {
+	public LibraryProcessorManager(Platform platform, RepositoryHandler repositories, List<LibraryProcessorFactory> libraryProcessorFactories, List<String> enabledProcessors) {
 		this.platform = platform;
 		this.repositories = repositories;
+		this.libraryProcessorFactories = libraryProcessorFactories;
 		this.enabledProcessors = enabledProcessors;
 	}
 
+	@VisibleForTesting
 	public LibraryProcessorManager(Platform platform, RepositoryHandler repositories) {
-		this(platform, repositories, Collections.emptyList());
+		this(platform, repositories, DEFAULT_LIBRARY_PROCESSORS, Collections.emptyList());
 	}
 
 	private List<LibraryProcessor> getProcessors(LibraryContext context) {
 		var processors = new ArrayList<LibraryProcessor>();
 
-		for (LibraryProcessorFactory<?> factory : LIBRARY_PROCESSORS) {
+		for (LibraryProcessorFactory factory : libraryProcessorFactories) {
 			final LibraryProcessor processor = factory.apply(platform, context);
 			final LibraryProcessor.ApplicationResult applicationResult = processor.getApplicationResult();
 
@@ -132,7 +135,7 @@ public class LibraryProcessorManager {
 		return Collections.unmodifiableList(libraries);
 	}
 
-	public interface LibraryProcessorFactory<T extends LibraryProcessor> extends BiFunction<Platform, LibraryContext, T> {
+	public interface LibraryProcessorFactory extends BiFunction<Platform, LibraryContext, LibraryProcessor> {
 	}
 
 	public boolean hasLWJGL2() {
