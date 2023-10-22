@@ -188,7 +188,7 @@ public interface LoomGradleExtension extends LoomGradleExtensionAPI {
 	ForgeRunsProvider getForgeRunsProvider();
 	void setForgeRunsProvider(ForgeRunsProvider forgeRunsProvider);
 
-	default boolean hasLWJGL2() {
-		return getMinecraftProvider().getLibraryProvider().getProcessorManager().hasLWJGL2();
+	default boolean hasLWJGL3() {
+		return getMinecraftProvider().getLibraryProvider().isLWJGL3();
 	}
 }
