@@ -36,6 +36,7 @@ import org.gradle.api.plugins.JavaPlugin;
 
 import net.fabricmc.loom.LoomGradleExtension;
 import net.fabricmc.loom.util.Constants;
+import net.fabricmc.loom.util.LoomVersions;
 import net.fabricmc.loom.util.gradle.GradleUtils;
 import net.fabricmc.loom.util.gradle.SourceSetHelper;
 
@@ -106,10 +107,10 @@ public abstract class LoomConfigurations implements Runnable {
 		extendsFrom(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME, Constants.Configurations.MINECRAFT_RUNTIME_LIBRARIES);
 
 		// Add the dev time dependencies
-		getDependencies().add(Constants.Configurations.LOOM_DEVELOPMENT_DEPENDENCIES, Constants.Dependencies.DEV_LAUNCH_INJECTOR + Constants.Dependencies.Versions.DEV_LAUNCH_INJECTOR);
-		getDependencies().add(Constants.Configurations.LOOM_DEVELOPMENT_DEPENDENCIES, Constants.Dependencies.TERMINAL_CONSOLE_APPENDER + Constants.Dependencies.Versions.TERMINAL_CONSOLE_APPENDER);
-		getDependencies().add(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME, Constants.Dependencies.JETBRAINS_ANNOTATIONS + Constants.Dependencies.Versions.JETBRAINS_ANNOTATIONS);
-		getDependencies().add(JavaPlugin.TEST_COMPILE_ONLY_CONFIGURATION_NAME, Constants.Dependencies.JETBRAINS_ANNOTATIONS + Constants.Dependencies.Versions.JETBRAINS_ANNOTATIONS);
+		getDependencies().add(Constants.Configurations.LOOM_DEVELOPMENT_DEPENDENCIES, LoomVersions.DEV_LAUNCH_INJECTOR.mavenNotation());
+		getDependencies().add(Constants.Configurations.LOOM_DEVELOPMENT_DEPENDENCIES, LoomVersions.TERMINAL_CONSOLE_APPENDER.mavenNotation());
+		getDependencies().add(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME, LoomVersions.JETBRAINS_ANNOTATIONS.mavenNotation());
+		getDependencies().add(JavaPlugin.TEST_COMPILE_ONLY_CONFIGURATION_NAME, LoomVersions.JETBRAINS_ANNOTATIONS.mavenNotation());
 
 		GradleUtils.afterSuccessfulEvaluation(getProject(), () -> {
 			if (extension.shouldGenerateSrgTiny()) {
@@ -117,9 +118,16 @@ public abstract class LoomConfigurations implements Runnable {
 			}
 		});
 
-		if (extension.isForge()) {
-			// Set up Forge configurations
-			registerNonTransitive(Constants.Configurations.FORGE, Role.RESOLVABLE);
+		if (extension.isForgeLike()) {
+			// Set up Forge and NeoForge configurations
+			if (extension.isForge()) {
+				// Forge-specific configurations
+				registerNonTransitive(Constants.Configurations.FORGE, Role.RESOLVABLE);
+			} else if (extension.isNeoForge()) {
+				// NeoForge-specific configurations
+				registerNonTransitive(Constants.Configurations.NEOFORGE, Role.RESOLVABLE);
+			}
+
 			registerNonTransitive(Constants.Configurations.FORGE_USERDEV, Role.RESOLVABLE);
 			registerNonTransitive(Constants.Configurations.FORGE_INSTALLER, Role.RESOLVABLE);
 			registerNonTransitive(Constants.Configurations.FORGE_UNIVERSAL, Role.RESOLVABLE);
@@ -148,6 +156,17 @@ public abstract class LoomConfigurations implements Runnable {
 			extendsFrom(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME, Constants.Configurations.FORGE_EXTRA);
 			extendsFrom(JavaPlugin.TEST_COMPILE_CLASSPATH_CONFIGURATION_NAME, Constants.Configurations.FORGE_EXTRA);
 			extendsFrom(JavaPlugin.TEST_RUNTIME_CLASSPATH_CONFIGURATION_NAME, Constants.Configurations.FORGE_EXTRA);
+
+			// Add Forge/NeoForge shared dev-time dependencies
+			// Note: Unprotect is set up later in CompileConfiguration because we need to skip it on legacy forge
+			getDependencies().add(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME, LoomVersions.JAVAX_ANNOTATIONS.mavenNotation());
+
+			// Add Forge-only dev-time dependencies
+			if (extension.isForge()) {
+				getDependencies().add(Constants.Configurations.FORGE_EXTRA, LoomVersions.NAMING_SERVICE.mavenNotation());
+				getDependencies().add(Constants.Configurations.FORGE_EXTRA, LoomVersions.MIXIN_REMAPPER_SERVICE.mavenNotation());
+				getDependencies().add(Constants.Configurations.FORGE_EXTRA, LoomVersions.MCP_ANNOTATIONS.mavenNotation());
+			}
 		}
 	}
 

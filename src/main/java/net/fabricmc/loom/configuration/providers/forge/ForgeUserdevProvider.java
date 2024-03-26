@@ -1,7 +1,7 @@
 /*
  * This file is part of fabric-loom, licensed under the MIT License (MIT).
  *
- * Copyright (c) 2020-2022 FabricMC
+ * Copyright (c) 2020-2023 FabricMC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,29 +25,34 @@
 package net.fabricmc.loom.configuration.providers.forge;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
-import java.util.Map;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.mojang.serialization.JsonOps;
+import dev.architectury.loom.forge.UserdevConfig;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.repositories.IvyArtifactRepository;
 
-import net.fabricmc.loom.LoomGradlePlugin;
 import net.fabricmc.loom.configuration.DependencyInfo;
+import net.fabricmc.loom.configuration.mods.dependency.LocalMavenHelper;
 import net.fabricmc.loom.util.Constants;
+import net.fabricmc.loom.util.FileSystemUtil;
 import net.fabricmc.loom.util.ZipUtils;
 
 public class ForgeUserdevProvider extends DependencyProvider {
 	private File userdevJar;
 	private JsonObject json;
+	private UserdevConfig config;
 	Path joinedPatches;
-	BinaryPatcherConfig binaryPatcherConfig;
 	private Boolean isLegacyForge;
 
 	public ForgeUserdevProvider(Project project) {
@@ -83,36 +88,109 @@ public class ForgeUserdevProvider extends DependencyProvider {
 
 		try (Reader reader = Files.newBufferedReader(configJson)) {
 			json = new Gson().fromJson(reader, JsonObject.class);
-		}
+			isLegacyForge = !json.has("mcp");
 
-		isLegacyForge = !json.has("mcp");
-
-		if (!isLegacyForge) {
-			addDependency(json.get("mcp").getAsString(), Constants.Configurations.MCP_CONFIG);
-			addDependency(json.get("mcp").getAsString(), Constants.Configurations.SRG);
-			addDependency(json.get("universal").getAsString(), Constants.Configurations.FORGE_UNIVERSAL);
-
-			if (Files.notExists(joinedPatches)) {
-				Files.write(joinedPatches, ZipUtils.unpack(userdevJar.toPath(), json.get("binpatches").getAsString()));
+			if (isLegacyForge) {
+				json = createManifestFromForgeGradle2(dependency, json);
 			}
 
-			binaryPatcherConfig = BinaryPatcherConfig.fromJson(json.getAsJsonObject("binpatcher"));
-		} else {
-			Map<String, String> mcpDep = Map.of(
-					"group", "de.oceanlabs.mcp",
-					"name", "mcp",
-					"version", json.get("inheritsFrom").getAsString(),
-					"classifier", "srg",
-					"ext", "zip"
-			);
-			addDependency(mcpDep, Constants.Configurations.MCP_CONFIG);
-			addDependency(mcpDep, Constants.Configurations.SRG);
-			addDependency(dependency.getDepString() + ":universal", Constants.Configurations.FORGE_UNIVERSAL);
-			addLegacyMCPRepo();
-
-			binaryPatcherConfig = new BinaryPatcherConfig("net.minecraftforge:binarypatcher:1.1.1:fatjar",
-					List.of("--clean", "{clean}", "--output", "{output}", "--apply", "{patch}"));
+			config = UserdevConfig.CODEC.parse(JsonOps.INSTANCE, json)
+					.getOrThrow(false, msg -> getProject().getLogger().error("Couldn't read userdev config, {}", msg));
 		}
+
+		addDependency(config.mcp(), Constants.Configurations.MCP_CONFIG);
+
+		if (!getExtension().isNeoForge()) {
+			addDependency(config.mcp(), Constants.Configurations.SRG);
+		}
+
+		addDependency(config.universal(), Constants.Configurations.FORGE_UNIVERSAL);
+
+		if (!isLegacyForge && Files.notExists(joinedPatches)) {
+			Files.write(joinedPatches, ZipUtils.unpack(userdevJar.toPath(), config.binpatches()));
+		}
+	}
+
+	private JsonObject createManifestFromForgeGradle2(DependencyInfo dependency, JsonObject fg2Json) throws IOException {
+		JsonObject json = new JsonObject();
+
+		addLegacyMCPRepo();
+		String mcVersion = fg2Json.get("inheritsFrom").getAsString();
+		json.addProperty("mcp", "de.oceanlabs.mcp:mcp:" + mcVersion + ":srg@zip");
+
+		json.addProperty("universal", dependency.getDepString() + ":universal");
+		json.addProperty("sources", createLegacySources(dependency));
+		json.addProperty("patches", "");
+		json.addProperty("binpatches", "");
+		json.add("binpatcher", createLegacyBinpatcher());
+		json.add("libraries", createLegacyLibs(fg2Json));
+		json.add("runs", createLegacyRuns());
+
+		return json;
+	}
+
+	private static JsonObject createLegacyBinpatcher() {
+		JsonObject binpatcher = new JsonObject();
+		binpatcher.addProperty("version", "net.minecraftforge:binarypatcher:1.1.1:fatjar");
+		JsonArray args = new JsonArray();
+		List.of("--clean", "{clean}", "--output", "{output}", "--apply", "{patch}").forEach(args::add);
+		binpatcher.add("args", args);
+		return binpatcher;
+	}
+
+	private static JsonArray createLegacyLibs(JsonObject json) {
+		JsonArray array = new JsonArray();
+
+		for (JsonElement lib : json.getAsJsonArray("libraries")) {
+			array.add(lib.getAsJsonObject().get("name"));
+		}
+
+		return array;
+	}
+
+	private static JsonObject createLegacyRuns() {
+		JsonObject clientRun = new JsonObject();
+		JsonObject serverRun = new JsonObject();
+		clientRun.addProperty("name", "client");
+		serverRun.addProperty("name", "server");
+		clientRun.addProperty("main", Constants.LegacyForge.LAUNCH_WRAPPER);
+		serverRun.addProperty("main", Constants.LegacyForge.LAUNCH_WRAPPER);
+		JsonArray clientArgs = new JsonArray();
+		JsonArray serverArgs = new JsonArray();
+		clientArgs.add("--tweakClass");
+		serverArgs.add("--tweakClass");
+		clientArgs.add(Constants.LegacyForge.FML_TWEAKER);
+		serverArgs.add(Constants.LegacyForge.FML_SERVER_TWEAKER);
+		clientArgs.add("--accessToken");
+		serverArgs.add("--accessToken");
+		clientArgs.add("undefined");
+		serverArgs.add("undefined");
+		clientRun.add("args", clientArgs);
+		serverRun.add("args", serverArgs);
+		JsonObject runs = new JsonObject();
+		runs.add("client", clientRun);
+		runs.add("server", serverRun);
+		return runs;
+	}
+
+	private String createLegacySources(DependencyInfo dependency) throws IOException {
+		Path sourceRepo = getExtension().getForgeProvider().getGlobalCache().toPath().resolve("source-repo");
+		String group = dependency.getDependency().getGroup();
+		String name = dependency.getDependency().getName() + "_sources";
+		String version = dependency.getResolvedVersion();
+		LocalMavenHelper sourcesMaven = new LocalMavenHelper(group, name, version, "sources", sourceRepo);
+		getProject().getRepositories().maven(repo -> {
+			repo.setName("LoomFG2Source");
+			repo.setUrl(sourceRepo);
+		});
+
+		if (!sourcesMaven.exists(null)) {
+			try (FileSystemUtil.Delegate fs = FileSystemUtil.getJarFileSystem(userdevJar.toPath(), false)) {
+				sourcesMaven.copyToMaven(fs.getPath("sources.zip"), null);
+			}
+		}
+
+		return sourcesMaven.getNotation();
 	}
 
 	private void addLegacyMCPRepo() {
@@ -153,11 +231,7 @@ public class ForgeUserdevProvider extends DependencyProvider {
 		return json;
 	}
 
-	public record BinaryPatcherConfig(String dependency, List<String> args) {
-		public static BinaryPatcherConfig fromJson(JsonObject json) {
-			String dependency = json.get("version").getAsString();
-			List<String> args = List.of(LoomGradlePlugin.GSON.fromJson(json.get("args"), String[].class));
-			return new BinaryPatcherConfig(dependency, args);
-		}
+	public UserdevConfig getConfig() {
+		return config;
 	}
 }

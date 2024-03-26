@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -39,6 +38,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import dev.architectury.loom.forge.UserdevConfig;
 import org.gradle.api.NamedDomainObjectContainer;
 import org.gradle.api.NamedDomainObjectSet;
 import org.gradle.api.Project;
@@ -58,28 +58,12 @@ public class ForgeRunsProvider {
 	private final JsonObject json;
 	private final NamedDomainObjectSet<ForgeRunTemplate> templates;
 
-	public ForgeRunsProvider(Project project, JsonObject json) {
+	public ForgeRunsProvider(Project project, JsonObject json, UserdevConfig userdevConfig) {
 		this.project = project;
 		this.extension = LoomGradleExtension.get(project);
 		this.json = json;
 		this.templates = project.getObjects().namedDomainObjectSet(ForgeRunTemplate.class);
-		readTemplates();
-	}
-
-	private void readTemplates() {
-		if (extension.isLegacyForge()) {
-			extension.getRunConfigs().configureEach(config -> {
-				if (Constants.Forge.UNDETERMINED_MAIN_CLASS.equals(config.getDefaultMainClass())) {
-					config.setDefaultMainClass(Constants.LegacyForge.LAUNCH_WRAPPER);
-				}
-			});
-			return;
-		}
-
-		for (Map.Entry<String, JsonElement> entry : json.getAsJsonObject("runs").entrySet()) {
-			ForgeRunTemplate template = ForgeRunTemplate.fromJson(entry.getValue().getAsJsonObject());
-			templates.add(template);
-		}
+		this.templates.addAll(userdevConfig.runs().values());
 	}
 
 	public NamedDomainObjectSet<ForgeRunTemplate> getTemplates() {
@@ -87,8 +71,8 @@ public class ForgeRunsProvider {
 	}
 
 	public static ForgeRunsProvider create(Project project) {
-		JsonObject json = LoomGradleExtension.get(project).getForgeUserdevProvider().getJson();
-		return new ForgeRunsProvider(project, json);
+		final ForgeUserdevProvider userdevProvider = LoomGradleExtension.get(project).getForgeUserdevProvider();
+		return new ForgeRunsProvider(project, userdevProvider.getJson(), userdevProvider.getConfig());
 	}
 
 	public ConfigValue.Resolver getResolver(@Nullable RunConfigSettings runConfig) {

@@ -47,6 +47,7 @@ import java.util.jar.Manifest;
 import java.util.stream.Stream;
 
 import com.google.common.base.Stopwatch;
+import dev.architectury.loom.util.MappingOption;
 import org.cadixdev.at.AccessTransformSet;
 import org.cadixdev.at.io.AccessTransformFormats;
 import org.cadixdev.lorenz.MappingSet;
@@ -306,7 +307,7 @@ public class MinecraftLegacyPatchedProvider extends MinecraftPatchedProvider {
 		AccessTransformSet accessTransformSet = AccessTransformSet.create();
 		AccessTransformFormats.FML.read(new StringReader(ats), accessTransformSet);
 
-		TinyMappingsService mappingsService = getExtension().getMappingConfiguration().getMappingsService(serviceManager, true);
+		TinyMappingsService mappingsService = getExtension().getMappingConfiguration().getMappingsService(serviceManager, MappingOption.WITH_SRG);
 		MappingTree mappingTree = mappingsService.getMappingTree();
 		MappingSet mappingSet = new TinyMappingsReader(mappingTree, "srg", "official").read();
 		accessTransformSet = AccessTransformSetMapper.remap(accessTransformSet, mappingSet);
@@ -346,12 +347,12 @@ public class MinecraftLegacyPatchedProvider extends MinecraftPatchedProvider {
 	}
 
 	@Override
-	public Path getMinecraftSrgJar() {
+	public Path getMinecraftIntermediateJar() {
 		throw new UnsupportedOperationException();
 	}
 
 	@Override
-	public Path getMinecraftPatchedSrgJar() {
+	public Path getMinecraftPatchedIntermediateJar() {
 		return forgeJar; // TODO current used only for ATs
 	}
 

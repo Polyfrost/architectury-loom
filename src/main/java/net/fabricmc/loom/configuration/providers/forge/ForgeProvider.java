@@ -32,14 +32,17 @@ import org.gradle.api.Project;
 import net.fabricmc.loom.LoomGradleExtension;
 import net.fabricmc.loom.configuration.DependencyInfo;
 import net.fabricmc.loom.util.Constants;
+import net.fabricmc.loom.util.LoomVersions;
+import net.fabricmc.loom.util.ModPlatform;
 
 public class ForgeProvider extends DependencyProvider {
+	private final ModPlatform platform;
 	private ForgeVersion version = new ForgeVersion(null);
 	private File globalCache;
-	private File projectCache;
 
 	public ForgeProvider(Project project) {
 		super(project);
+		platform = getExtension().getPlatform().get();
 	}
 
 	@Override
@@ -47,6 +50,10 @@ public class ForgeProvider extends DependencyProvider {
 		version = new ForgeVersion(dependency.getResolvedVersion());
 		addDependency(dependency.getDepString() + ":userdev", Constants.Configurations.FORGE_USERDEV);
 		addDependency(dependency.getDepString() + ":installer", Constants.Configurations.FORGE_INSTALLER);
+
+		if (getExtension().isForge() && version.getMajorVersion() >= Constants.Forge.MIN_UNION_RELAUNCHER_VERSION) {
+			addDependency(LoomVersions.UNION_RELAUNCHER.mavenNotation(), Constants.Configurations.FORGE_EXTRA);
+		}
 	}
 
 	public ForgeVersion getVersion() {
@@ -55,25 +62,16 @@ public class ForgeProvider extends DependencyProvider {
 
 	public File getGlobalCache() {
 		if (globalCache == null) {
-			globalCache = getMinecraftProvider().dir("forge/" + version.getCombined());
+			globalCache = getMinecraftProvider().dir(platform.id() + "/" + version.getCombined());
 			globalCache.mkdirs();
 		}
 
 		return globalCache;
 	}
 
-	public File getProjectCache() {
-		if (projectCache == null) {
-			projectCache = new File(getDirectories().getRootProjectPersistentCache(), getMinecraftProvider().minecraftVersion() + "/forge/" + getExtension().getForgeProvider().getVersion().getCombined() + "/project-" + getProject().getPath().replace(':', '@'));
-			projectCache.mkdirs();
-		}
-
-		return projectCache;
-	}
-
 	@Override
 	public String getTargetConfig() {
-		return Constants.Configurations.FORGE;
+		return platform == ModPlatform.NEOFORGE ? Constants.Configurations.NEOFORGE : Constants.Configurations.FORGE;
 	}
 
 	/**
@@ -83,15 +81,17 @@ public class ForgeProvider extends DependencyProvider {
 	 */
 	public static Path getForgeCache(Project project) {
 		final LoomGradleExtension extension = LoomGradleExtension.get(project);
+		final ModPlatform platform = extension.getPlatform().get();
 		final String version = extension.getForgeProvider().getVersion().getCombined();
 		return LoomGradleExtension.get(project).getMinecraftProvider()
-				.dir("forge/" + version).toPath();
+				.dir(platform.id() + "/" + version).toPath();
 	}
 
 	public static final class ForgeVersion {
 		private final String combined;
 		private final String minecraftVersion;
 		private final String forgeVersion;
+		private final int majorVersion;
 
 		public ForgeVersion(String combined) {
 			this.combined = combined;
@@ -99,6 +99,7 @@ public class ForgeProvider extends DependencyProvider {
 			if (combined == null) {
 				this.minecraftVersion = "NO_VERSION";
 				this.forgeVersion = "NO_VERSION";
+				this.majorVersion = -1;
 				return;
 			}
 
@@ -111,6 +112,21 @@ public class ForgeProvider extends DependencyProvider {
 				this.minecraftVersion = "NO_VERSION";
 				this.forgeVersion = combined;
 			}
+
+			int dotIndex = forgeVersion.indexOf('.');
+			int major;
+
+			try {
+				if (dotIndex >= 0) {
+					major = Integer.parseInt(forgeVersion.substring(0, dotIndex));
+				} else {
+					major = Integer.parseInt(forgeVersion);
+				}
+			} catch (NumberFormatException e) {
+				major = -1;
+			}
+
+			this.majorVersion = major;
 		}
 
 		public String getCombined() {
@@ -123,6 +139,10 @@ public class ForgeProvider extends DependencyProvider {
 
 		public String getForgeVersion() {
 			return forgeVersion;
+		}
+
+		public int getMajorVersion() {
+			return majorVersion;
 		}
 	}
 }

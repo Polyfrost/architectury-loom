@@ -28,6 +28,7 @@ import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Objects;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -57,6 +58,7 @@ public class McpConfigProvider extends DependencyProvider {
 			//CHECKSTYLE:OFF
 			String json = """
 {
+  "version": "$version",
   "data": {
     "mappings": "TODO mappings"
   },
@@ -76,7 +78,7 @@ public class McpConfigProvider extends DependencyProvider {
   },
   "functions": {}
 }
-					""";
+					""".replace("$version", Objects.requireNonNull(dependency.getDependency().getVersion()));
 			//CHECKSTYLE:ON
 
 			data = McpConfigData.fromJson(new Gson().fromJson(json, JsonObject.class));
@@ -107,7 +109,8 @@ public class McpConfigProvider extends DependencyProvider {
 	}
 
 	private void init(String version) {
-		Path dir = getMinecraftProvider().dir("mcp/" + version).toPath();
+		String mcpName = getExtension().isNeoForge() ? "neoform" : "mcp";
+		Path dir = getMinecraftProvider().dir(mcpName + "/" + version).toPath();
 		mcp = dir.resolve("mcp.zip");
 		unpacked = dir.resolve("unpacked");
 		configJson = unpacked.resolve("config.json");

@@ -36,14 +36,17 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.function.Function;
 
+import dev.architectury.loom.util.MappingOption;
 import dev.architectury.tinyremapper.OutputConsumerPath;
 import dev.architectury.tinyremapper.TinyRemapper;
 import org.gradle.api.Project;
 
 import net.fabricmc.loom.LoomGradleExtension;
 import net.fabricmc.loom.api.mappings.layered.MappingsNamespace;
+import net.fabricmc.loom.build.IntermediaryNamespaces;
 import net.fabricmc.loom.configuration.ConfigContext;
 import net.fabricmc.loom.configuration.mods.dependency.LocalMavenHelper;
+import net.fabricmc.loom.configuration.providers.forge.minecraft.ForgeMinecraftProvider;
 import net.fabricmc.loom.configuration.providers.mappings.IntermediaryMappingsProvider;
 import net.fabricmc.loom.configuration.providers.mappings.MappingConfiguration;
 import net.fabricmc.loom.configuration.providers.mappings.TinyMappingsService;
@@ -176,6 +179,11 @@ public abstract class AbstractMappedMinecraftProvider<M extends MinecraftProvide
 			}
 		}
 
+		// Architectury: regenerate jars if patches have changed.
+		if (minecraftProvider instanceof ForgeMinecraftProvider withForge && withForge.getPatchedProvider().isDirty()) {
+			return false;
+		}
+
 		return true;
 	}
 
@@ -194,7 +202,7 @@ public abstract class AbstractMappedMinecraftProvider<M extends MinecraftProvide
 
 		Files.deleteIfExists(remappedJars.outputJarPath());
 
-		final Set<String> classNames = extension.isForge() ? InnerClassRemapper.readClassNames(remappedJars.inputJar()) : Set.of();
+		final Set<String> classNames = extension.isForgeLike() ? InnerClassRemapper.readClassNames(remappedJars.inputJar()) : Set.of();
 		final Map<String, String> remappedSignatures = SignatureFixerApplyVisitor.getRemappedSignatures(getTargetNamespace() == MappingsNamespace.INTERMEDIARY, mappingConfiguration, getProject(), configContext.serviceManager(), toM);
 		TinyRemapper remapper = TinyRemapperHelper.getTinyRemapper(getProject(), configContext.serviceManager(), fromM, toM, true, (builder) -> {
 			builder.extraPostApplyVisitor(new SignatureFixerApplyVisitor(remappedSignatures));
@@ -219,11 +227,21 @@ public abstract class AbstractMappedMinecraftProvider<M extends MinecraftProvide
 
 		getMavenHelper(remappedJars.name()).savePom();
 
-		if (extension.isForgeAndOfficial()) {
+		if (extension.isForgeLikeAndOfficial()) {
 			try (var serviceManager = new ScopedSharedServiceManager()) {
-				TinyMappingsService mappingsService = extension.getMappingConfiguration().getMappingsService(serviceManager, true);
-				MemoryMappingTree mappingsWithSrg = mappingsService.getMappingTree();
-				RemapObjectHolderVisitor.remapObjectHolder(remappedJars.outputJar().getPath(), "net.minecraftforge.registries.ObjectHolderRegistry", mappingsWithSrg, "srg", "named");
+				final MappingOption mappingOption = MappingOption.forPlatform(extension);
+				final TinyMappingsService mappingsService = extension.getMappingConfiguration().getMappingsService(serviceManager, mappingOption);
+				final String className;
+
+				if (extension.isNeoForge()) {
+					className = "net.neoforged.neoforge.registries.ObjectHolderRegistry";
+				} else {
+					className = "net.minecraftforge.registries.ObjectHolderRegistry";
+				}
+
+				final String sourceNamespace = IntermediaryNamespaces.intermediary(project);
+				final MemoryMappingTree mappings = mappingsService.getMappingTree();
+				RemapObjectHolderVisitor.remapObjectHolder(remappedJars.outputJar().getPath(), className, mappings, sourceNamespace, "named");
 			}
 		}
 	}

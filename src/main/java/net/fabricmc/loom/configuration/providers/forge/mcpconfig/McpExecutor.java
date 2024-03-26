@@ -46,6 +46,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
+import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.logging.LogLevel;
 import org.gradle.api.logging.Logger;
 import org.gradle.process.JavaExecSpec;
@@ -53,6 +55,7 @@ import org.jetbrains.annotations.Nullable;
 
 import net.fabricmc.loom.LoomGradleExtension;
 import net.fabricmc.loom.configuration.providers.forge.ConfigValue;
+import net.fabricmc.loom.configuration.providers.forge.ForgeProvider;
 import net.fabricmc.loom.configuration.providers.forge.mcpconfig.steplogic.ConstantLogic;
 import net.fabricmc.loom.configuration.providers.forge.mcpconfig.steplogic.DownloadManifestFileLogic;
 import net.fabricmc.loom.configuration.providers.forge.mcpconfig.steplogic.FunctionLogic;
@@ -67,6 +70,7 @@ import net.fabricmc.loom.util.Constants;
 import net.fabricmc.loom.util.ForgeToolExecutor;
 import net.fabricmc.loom.util.download.DownloadBuilder;
 import net.fabricmc.loom.util.function.CollectionUtil;
+import net.fabricmc.loom.util.gradle.GradleUtils;
 
 public final class McpExecutor {
 	private static final LogLevel STEP_LOG_LEVEL = LogLevel.LIFECYCLE;
@@ -90,7 +94,33 @@ public final class McpExecutor {
 		this.dependencySet.skip(step -> getStepLogic(step.name(), step.type()) instanceof NoOpLogic);
 		this.dependencySet.setIgnoreDependenciesFilter(step -> getStepLogic(step.name(), step.type()).hasNoContext());
 
+		checkMinecraftVersion(provider);
 		addDefaultFiles(provider, environment);
+	}
+
+	private void checkMinecraftVersion(McpConfigProvider provider) {
+		final String expected = provider.getData().version();
+		final String actual = minecraftProvider.minecraftVersion();
+
+		if (!expected.equals(actual)) {
+			final LoomGradleExtension extension = LoomGradleExtension.get(project);
+			final ForgeProvider forgeProvider = extension.getForgeProvider();
+			final String message = "%s %s is not for Minecraft %s (expected: %s)."
+					.formatted(
+							extension.getPlatform().get().displayName(),
+							forgeProvider.getVersion().getCombined(),
+							actual,
+							expected
+					);
+
+			if (GradleUtils.getBooleanProperty(project, Constants.Properties.ALLOW_MISMATCHED_PLATFORM_VERSION)) {
+				project.getLogger().warn(message);
+			} else {
+				final String fullMessage = "%s\nYou can suppress this error by adding '%s = true' to gradle.properties."
+						.formatted(message, Constants.Properties.ALLOW_MISMATCHED_PLATFORM_VERSION);
+				throw new UnsupportedOperationException(fullMessage);
+			}
+		}
 	}
 
 	private void addDefaultFiles(McpConfigProvider provider, String environment) {
@@ -298,10 +328,18 @@ public final class McpExecutor {
 		}
 
 		@Override
-		public Path download(String url) throws IOException {
+		public Path downloadFile(String url) throws IOException {
 			Path path = getDownloadCache().resolve(Hashing.sha256().hashString(url, StandardCharsets.UTF_8).toString().substring(0, 24));
 			redirectAwareDownload(url, path);
 			return path;
+		}
+
+		@Override
+		public Path downloadDependency(String notation) {
+			final Dependency dependency = project.getDependencies().create(notation);
+			final Configuration configuration = project.getConfigurations().detachedConfiguration(dependency);
+			configuration.setTransitive(false);
+			return configuration.getSingleFile().toPath();
 		}
 
 		@Override

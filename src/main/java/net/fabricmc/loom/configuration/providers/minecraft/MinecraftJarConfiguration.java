@@ -38,6 +38,7 @@ import net.fabricmc.loom.configuration.processors.MinecraftJarProcessorManager;
 import net.fabricmc.loom.configuration.providers.forge.minecraft.ForgeMinecraftProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.mapped.IntermediaryMinecraftProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.mapped.MappedMinecraftProvider;
+import net.fabricmc.loom.configuration.providers.minecraft.mapped.MojangMappedMinecraftProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.mapped.NamedMinecraftProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.mapped.ProcessedNamedMinecraftProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.mapped.SrgMinecraftProvider;
@@ -48,6 +49,7 @@ public enum MinecraftJarConfiguration {
 		IntermediaryMinecraftProvider.MergedImpl::new,
 		NamedMinecraftProvider.MergedImpl::new,
 		SrgMinecraftProvider.MergedImpl::new,
+		MojangMappedMinecraftProvider.MergedImpl::new,
 		ProcessedNamedMinecraftProvider.MergedImpl::new,
 		SingleJarDecompileConfiguration::new,
 		List.of("client", "server")
@@ -57,6 +59,7 @@ public enum MinecraftJarConfiguration {
 		IntermediaryMinecraftProvider.SingleJarImpl::server,
 		NamedMinecraftProvider.SingleJarImpl::server,
 		SrgMinecraftProvider.SingleJarImpl::server,
+		MojangMappedMinecraftProvider.SingleJarImpl::server,
 		ProcessedNamedMinecraftProvider.SingleJarImpl::server,
 		SingleJarDecompileConfiguration::new,
 		List.of("server")
@@ -66,6 +69,7 @@ public enum MinecraftJarConfiguration {
 		IntermediaryMinecraftProvider.SingleJarImpl::client,
 		NamedMinecraftProvider.SingleJarImpl::client,
 		SrgMinecraftProvider.SingleJarImpl::client,
+		MojangMappedMinecraftProvider.SingleJarImpl::client,
 		ProcessedNamedMinecraftProvider.SingleJarImpl::client,
 		SingleJarDecompileConfiguration::new,
 		List.of("client")
@@ -75,6 +79,7 @@ public enum MinecraftJarConfiguration {
 		IntermediaryMinecraftProvider.SplitImpl::new,
 		NamedMinecraftProvider.SplitImpl::new,
 		SrgMinecraftProvider.SplitImpl::new,
+		MojangMappedMinecraftProvider.SplitImpl::new,
 		ProcessedNamedMinecraftProvider.SplitImpl::new,
 		SplitDecompileConfiguration::new,
 		List.of("client", "server")
@@ -84,6 +89,7 @@ public enum MinecraftJarConfiguration {
 	private final BiFunction<Project, MinecraftProvider, IntermediaryMinecraftProvider<?>> intermediaryMinecraftProviderBiFunction;
 	private final BiFunction<Project, MinecraftProvider, NamedMinecraftProvider<?>> namedMinecraftProviderBiFunction;
 	private final BiFunction<Project, MinecraftProvider, SrgMinecraftProvider<?>> srgMinecraftProviderBiFunction;
+	private final BiFunction<Project, MinecraftProvider, MojangMappedMinecraftProvider<?>> mojangMappedMinecraftProviderBiFunction;
 	private final BiFunction<NamedMinecraftProvider<?>, MinecraftJarProcessorManager, ProcessedNamedMinecraftProvider<?, ?>> processedNamedMinecraftProviderBiFunction;
 	private final BiFunction<ConfigContext, MappedMinecraftProvider, DecompileConfiguration<?>> decompileConfigurationBiFunction;
 	private final List<String> supportedEnvironments;
@@ -94,6 +100,7 @@ public enum MinecraftJarConfiguration {
 			BiFunction<Project, M, IntermediaryMinecraftProvider<M>> intermediaryMinecraftProviderBiFunction,
 			BiFunction<Project, M, P> namedMinecraftProviderBiFunction,
 			BiFunction<Project, M, SrgMinecraftProvider<M>> srgMinecraftProviderBiFunction,
+			BiFunction<Project, M, MojangMappedMinecraftProvider<M>> mojangMappedMinecraftProviderBiFunction,
 			BiFunction<P, MinecraftJarProcessorManager, ProcessedNamedMinecraftProvider<M, P>> processedNamedMinecraftProviderBiFunction,
 			BiFunction<ConfigContext, Q, DecompileConfiguration<?>> decompileConfigurationBiFunction,
 			List<String> supportedEnvironments
@@ -102,6 +109,7 @@ public enum MinecraftJarConfiguration {
 		this.intermediaryMinecraftProviderBiFunction = (BiFunction<Project, MinecraftProvider, IntermediaryMinecraftProvider<?>>) (Object) intermediaryMinecraftProviderBiFunction;
 		this.namedMinecraftProviderBiFunction = (BiFunction<Project, MinecraftProvider, NamedMinecraftProvider<?>>) namedMinecraftProviderBiFunction;
 		this.srgMinecraftProviderBiFunction = (BiFunction<Project, MinecraftProvider, SrgMinecraftProvider<?>>) (Object) srgMinecraftProviderBiFunction;
+		this.mojangMappedMinecraftProviderBiFunction = (BiFunction<Project, MinecraftProvider, MojangMappedMinecraftProvider<?>>) (Object) mojangMappedMinecraftProviderBiFunction;
 		this.processedNamedMinecraftProviderBiFunction = (BiFunction<NamedMinecraftProvider<?>, MinecraftJarProcessorManager, ProcessedNamedMinecraftProvider<?, ?>>) (Object) processedNamedMinecraftProviderBiFunction;
 		this.decompileConfigurationBiFunction = (BiFunction<ConfigContext, MappedMinecraftProvider, DecompileConfiguration<?>>) decompileConfigurationBiFunction;
 		this.supportedEnvironments = supportedEnvironments;
@@ -129,6 +137,10 @@ public enum MinecraftJarConfiguration {
 
 	public BiFunction<Project, MinecraftProvider, SrgMinecraftProvider<?>> getSrgMinecraftProviderBiFunction() {
 		return srgMinecraftProviderBiFunction;
+	}
+
+	public BiFunction<Project, MinecraftProvider, MojangMappedMinecraftProvider<?>> getMojangMappedMinecraftProviderBiFunction() {
+		return mojangMappedMinecraftProviderBiFunction;
 	}
 
 	public List<String> getSupportedEnvironments() {

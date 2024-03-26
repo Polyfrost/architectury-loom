@@ -44,6 +44,7 @@ import java.util.Objects;
 
 import com.google.common.base.Stopwatch;
 import com.google.gson.JsonObject;
+import dev.architectury.loom.util.MappingOption;
 import org.apache.tools.ant.util.StringUtils;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -54,6 +55,7 @@ import org.slf4j.LoggerFactory;
 
 import net.fabricmc.loom.LoomGradleExtension;
 import net.fabricmc.loom.LoomGradlePlugin;
+import net.fabricmc.loom.api.mappings.layered.MappingContext;
 import net.fabricmc.loom.configuration.DependencyInfo;
 import net.fabricmc.loom.configuration.providers.forge.FieldMigratedMappingConfiguration;
 import net.fabricmc.loom.configuration.providers.forge.SrgProvider;
@@ -67,10 +69,11 @@ import net.fabricmc.loom.util.ZipUtils;
 import net.fabricmc.loom.util.service.ScopedSharedServiceManager;
 import net.fabricmc.loom.util.service.SharedServiceManager;
 import net.fabricmc.loom.util.srg.MCPReader;
-import net.fabricmc.loom.util.srg.SrgMerger;
+import net.fabricmc.loom.util.srg.ForgeMappingsMerger;
 import net.fabricmc.loom.util.srg.SrgNamedWriter;
 import net.fabricmc.mappingio.MappingReader;
 import net.fabricmc.mappingio.format.MappingFormat;
+import net.fabricmc.mappingio.format.Tiny2Writer;
 import net.fabricmc.stitch.Command;
 import net.fabricmc.stitch.commands.CommandProposeFieldNames;
 import net.fabricmc.stitch.commands.tinyv2.TinyFile;
@@ -87,6 +90,7 @@ public class MappingConfiguration {
 	// The mappings we use in practice
 	public Path tinyMappings;
 	public final Path tinyMappingsJar;
+	public Path tinyMappingsWithMojang;
 	public Path tinyMappingsWithSrg;
 	public final Map<String, Path> mixinTinyMappings; // The mixin mappings have other names in intermediary.
 	public final Path srgToNamedSrg; // FORGE: srg to named in srg file format
@@ -105,6 +109,7 @@ public class MappingConfiguration {
 		this.tinyMappingsJar = mappingsWorkingDir.resolve("mappings.jar");
 		this.unpickDefinitions = mappingsWorkingDir.resolve("mappings.unpick");
 		this.tinyMappingsWithSrg = mappingsWorkingDir.resolve("mappings-srg.tiny");
+		this.tinyMappingsWithMojang = mappingsWorkingDir.resolve("mappings-mojang.tiny");
 		this.mixinTinyMappings = new HashMap<>();
 		this.srgToNamedSrg = mappingsWorkingDir.resolve("mappings-srg-named.srg");
 	}
@@ -124,7 +129,7 @@ public class MappingConfiguration {
 		final LoomGradleExtension extension = LoomGradleExtension.get(project);
 		String mappingsIdentifier;
 
-		if (extension.isForge()) {
+		if (extension.isForgeLike()) {
 			mappingsIdentifier = FieldMigratedMappingConfiguration.createForgeMappingsIdentifier(extension, mappingsName, version, getMappingsClassifier(dependency, jarInfo.v2()), minecraftProvider.minecraftVersion());
 		} else {
 			mappingsIdentifier = createMappingsIdentifier(mappingsName, version, getMappingsClassifier(dependency, jarInfo.v2()), minecraftProvider.minecraftVersion());
@@ -138,7 +143,7 @@ public class MappingConfiguration {
 
 		MappingConfiguration mappingConfiguration;
 
-		if (extension.isForge()) {
+		if (extension.isForgeLike()) {
 			mappingConfiguration = new FieldMigratedMappingConfiguration(mappingsIdentifier, workingDir);
 		} else {
 			mappingConfiguration = new MappingConfiguration(mappingsIdentifier, workingDir);
@@ -155,21 +160,27 @@ public class MappingConfiguration {
 	}
 
 	public TinyMappingsService getMappingsService(SharedServiceManager serviceManager) {
-		return getMappingsService(serviceManager, false);
+		return getMappingsService(serviceManager, MappingOption.DEFAULT);
 	}
 
-	public TinyMappingsService getMappingsService(SharedServiceManager serviceManager, boolean withSrg) {
-		final Path tinyMappings;
-
-		if (withSrg) {
+	public TinyMappingsService getMappingsService(SharedServiceManager serviceManager, MappingOption mappingOption) {
+		final Path tinyMappings = switch (mappingOption) {
+		case WITH_SRG -> {
 			if (Files.notExists(this.tinyMappingsWithSrg)) {
 				throw new UnsupportedOperationException("Cannot get mappings service with SRG mappings without SRG enabled!");
 			}
 
-			tinyMappings = this.tinyMappingsWithSrg;
-		} else {
-			tinyMappings = this.tinyMappings;
+			yield this.tinyMappingsWithSrg;
 		}
+		case WITH_MOJANG -> {
+			if (Files.notExists(this.tinyMappingsWithMojang)) {
+				throw new UnsupportedOperationException("Cannot get mappings service with Mojang mappings without Mojang merging enabled!");
+			}
+
+			yield this.tinyMappingsWithMojang;
+		}
+		default -> this.tinyMappings;
+		};
 
 		return TinyMappingsService.create(serviceManager, Objects.requireNonNull(tinyMappings));
 	}
@@ -195,20 +206,40 @@ public class MappingConfiguration {
 
 	public void setupPost(Project project) throws IOException {
 		LoomGradleExtension extension = LoomGradleExtension.get(project);
-		manipulateMappings(project, tinyMappingsJar);
+
+		if (extension.isNeoForge()) {
+			// Generate the Mojmap-merged mappings if needed.
+			// Note that this needs to happen before manipulateMappings for FieldMigratedMappingConfiguration.
+			if (Files.notExists(tinyMappingsWithMojang) || extension.refreshDeps()) {
+				final Stopwatch stopwatch = Stopwatch.createStarted();
+				final MappingContext context = new GradleMappingContext(project, "tmp-neoforge");
+
+				try (Tiny2Writer writer = new Tiny2Writer(Files.newBufferedWriter(tinyMappingsWithMojang), false)) {
+					ForgeMappingsMerger.mergeMojang(context, tinyMappings, null, true).accept(writer);
+				}
+
+				project.getLogger().info(":merged mojang mappings in {}", stopwatch.stop());
+			}
+		}
 
 		if (extension.shouldGenerateSrgTiny()) {
 			if (Files.notExists(tinyMappingsWithSrg) || extension.refreshDeps()) {
 				// Merge tiny mappings with srg
 				Stopwatch stopwatch = Stopwatch.createStarted();
 				// FIXME why is this special case necessary?
-				SrgMerger.ExtraMappings extraMappings = extension.isLegacyForge()
+				ForgeMappingsMerger.ExtraMappings extraMappings = extension.isLegacyForge()
 						? null
-						: SrgMerger.ExtraMappings.ofMojmapTsrg(getMojmapSrgFileIfPossible(project));
-				SrgMerger.mergeSrg(getRawSrgFile(project), tinyMappings, tinyMappingsWithSrg, extraMappings, true);
+						: ForgeMappingsMerger.ExtraMappings.ofMojmapTsrg(getMojmapSrgFileIfPossible(project));
+
+				try (Tiny2Writer writer = new Tiny2Writer(Files.newBufferedWriter(tinyMappingsWithSrg), false)) {
+					ForgeMappingsMerger.mergeSrg(getRawSrgFile(project), tinyMappings, extraMappings, true).accept(writer);
+				}
+
 				project.getLogger().info(":merged srg mappings in " + stopwatch.stop());
 			}
 		}
+
+		manipulateMappings(project, tinyMappingsJar);
 	}
 
 	public void applyToProject(Project project, DependencyInfo dependency) throws IOException {
@@ -232,7 +263,7 @@ public class MappingConfiguration {
 
 			if (Files.notExists(srgToNamedSrg) || extension.refreshDeps()) {
 				try (var serviceManager = new ScopedSharedServiceManager()) {
-					TinyMappingsService mappingsService = getMappingsService(serviceManager, true);
+					TinyMappingsService mappingsService = getMappingsService(serviceManager, MappingOption.WITH_SRG);
 					SrgNamedWriter.writeTo(srgToNamedSrg, mappingsService.getMappingTree(), "srg", "named", extension.isLegacyForge());
 				}
 			}
@@ -302,7 +333,7 @@ public class MappingConfiguration {
 
 			MappingsMerger.mergeAndSaveMappings(baseTinyMappings, tinyMappings, intermediateMappingsService);
 		} else {
-			if (LoomGradleExtension.get(project).isForge()) {
+			if (LoomGradleExtension.get(project).isForgeLike()) {
 				// (2022-09-11) This is due to ordering issues.
 				// To complete V1 mappings, we need the full MC jar.
 				// On Forge, producing the full MC jar needs the list of all Forge dependencies
@@ -510,14 +541,14 @@ public class MappingConfiguration {
 	}
 
 	public Path getReplacedTarget(LoomGradleExtension loom, String namespace) {
-		if (namespace.equals("intermediary")) return loom.shouldGenerateSrgTiny() ? tinyMappingsWithSrg : tinyMappings;
+		if (namespace.equals("intermediary")) return getPlatformMappingFile(loom);
 
 		return mixinTinyMappings.computeIfAbsent(namespace, k -> {
 			Path path = mappingsWorkingDir.resolve("mappings-mixin-" + namespace + ".tiny");
 
 			try {
 				if (Files.notExists(path) || loom.refreshDeps()) {
-					List<String> lines = new ArrayList<>(Files.readAllLines(loom.shouldGenerateSrgTiny() ? tinyMappingsWithSrg : tinyMappings));
+					List<String> lines = new ArrayList<>(Files.readAllLines(getPlatformMappingFile(loom)));
 					lines.set(0, lines.get(0).replace("intermediary", "yraidemretni").replace(namespace, "intermediary"));
 					Files.deleteIfExists(path);
 					Files.write(path, lines);
@@ -528,6 +559,22 @@ public class MappingConfiguration {
 				throw new RuntimeException(e);
 			}
 		});
+	}
+
+	/**
+	 * The mapping file that is specific to the platform settings.
+	 * It contains SRG (Forge/common) or Mojang mappings (NeoForge) as needed.
+	 *
+	 * @return the platform mapping file path
+	 */
+	public Path getPlatformMappingFile(LoomGradleExtension extension) {
+		if (extension.shouldGenerateSrgTiny()) {
+			return tinyMappingsWithSrg;
+		} else if (extension.isNeoForge()) {
+			return tinyMappingsWithMojang;
+		} else {
+			return tinyMappings;
+		}
 	}
 
 	public record UnpickMetadata(String unpickGroup, String unpickVersion) {

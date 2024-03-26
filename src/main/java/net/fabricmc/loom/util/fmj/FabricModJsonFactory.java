@@ -166,7 +166,7 @@ public final class FabricModJsonFactory {
 	}
 
 	public static boolean isModJar(Path input, ModPlatform platform) {
-		if (platform == ModPlatform.FORGE) {
+		if (platform.isForgeLike()) {
 			return ZipUtils.contains(input, "META-INF/mods.toml") || ZipUtils.contains(input, "mcmod.info");
 		} else if (platform == ModPlatform.QUILT) {
 			return ZipUtils.contains(input, "quilt.mod.json") || isModJar(input, ModPlatform.FABRIC);
@@ -180,8 +180,8 @@ public final class FabricModJsonFactory {
 	}
 
 	public static boolean isNestableModJar(Path input, ModPlatform platform) {
-		// Forge don't care if the main jar is mod jar.
-		if (platform == ModPlatform.FORGE) return true;
+		// Forge and NeoForge don't care if the main jar is mod jar.
+		if (platform.isForgeLike()) return true;
 		return isModJar(input, platform);
 	}
 
@@ -190,7 +190,7 @@ public final class FabricModJsonFactory {
 			return true;
 		}
 
-		if (platform == ModPlatform.FORGE) {
+		if (platform.isForgeLike()) {
 			return Files.exists(fs.getPath("META-INF/mods.toml")) || Files.exists(fs.getPath("mcmod.info"));
 		} else if (platform == ModPlatform.QUILT) {
 			return Files.exists(fs.getPath("quilt.mod.json")) || containsMod(fs, ModPlatform.FABRIC);

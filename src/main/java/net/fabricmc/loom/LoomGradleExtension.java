@@ -50,6 +50,7 @@ import net.fabricmc.loom.configuration.providers.mappings.MappingConfiguration;
 import net.fabricmc.loom.configuration.providers.minecraft.MinecraftProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.library.LibraryProcessorManager;
 import net.fabricmc.loom.configuration.providers.minecraft.mapped.IntermediaryMinecraftProvider;
+import net.fabricmc.loom.configuration.providers.minecraft.mapped.MojangMappedMinecraftProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.mapped.NamedMinecraftProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.mapped.SrgMinecraftProvider;
 import net.fabricmc.loom.extension.LoomFiles;
@@ -95,6 +96,10 @@ public interface LoomGradleExtension extends LoomGradleExtensionAPI {
 
 	void setSrgMinecraftProvider(SrgMinecraftProvider<?> srgMinecraftProvider);
 
+	MojangMappedMinecraftProvider<?> getMojangMappedMinecraftProvider();
+
+	void setMojangMappedMinecraftProvider(MojangMappedMinecraftProvider<?> srgMinecraftProvider);
+
 	default List<Path> getMinecraftJars(MappingsNamespace mappingsNamespace) {
 		return switch (mappingsNamespace) {
 		case NAMED -> getNamedMinecraftProvider().getMinecraftJarPaths();
@@ -103,6 +108,10 @@ public interface LoomGradleExtension extends LoomGradleExtensionAPI {
 		case SRG -> {
 			ModPlatform.assertPlatform(this, ModPlatform.FORGE, () -> "SRG jars are only available on Forge.");
 			yield getSrgMinecraftProvider().getMinecraftJarPaths();
+		}
+		case MOJANG -> {
+			ModPlatform.assertPlatform(this, ModPlatform.NEOFORGE, () -> "Mojang-mapped jars are only available on NeoForge.");
+			yield getMojangMappedMinecraftProvider().getMinecraftJarPaths();
 		}
 		};
 	}
@@ -149,12 +158,12 @@ public interface LoomGradleExtension extends LoomGradleExtensionAPI {
 		return isForge() && !getForge().getDataGenMods().isEmpty();
 	}
 
-	default boolean isForgeAndOfficial() {
-		return isForge() && getMcpConfigProvider().isOfficial();
+	default boolean isForgeLikeAndOfficial() {
+		return isForgeLike() && getMcpConfigProvider().isOfficial();
 	}
 
-	default boolean isForgeAndNotOfficial() {
-		return isForge() && !getMcpConfigProvider().isOfficial();
+	default boolean isForgeLikeAndNotOfficial() {
+		return isForgeLike() && !getMcpConfigProvider().isOfficial();
 	}
 
 	default boolean isLegacyForge() {
@@ -163,6 +172,10 @@ public interface LoomGradleExtension extends LoomGradleExtensionAPI {
 
 	default boolean isModernForge() {
 		return isForge() && !isLegacyForge();
+	}
+
+	default boolean isModernForgeLike() {
+		return isForgeLike() && !isLegacyForge();
 	}
 
 	DependencyProviders getDependencyProviders();
@@ -190,5 +203,15 @@ public interface LoomGradleExtension extends LoomGradleExtensionAPI {
 
 	default boolean hasLWJGL3() {
 		return getMinecraftProvider().getLibraryProvider().isLWJGL3();
+        }
+
+	/**
+	 * The mapping file that is specific to the platform settings.
+	 * It contains SRG (Forge/common) or Mojang mappings (NeoForge) as needed.
+	 *
+	 * @return the platform mapping file path
+	 */
+	default Path getPlatformMappingFile() {
+		return getMappingConfiguration().getPlatformMappingFile(this);
 	}
 }

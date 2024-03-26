@@ -1,0 +1,47 @@
+[versions]
+# Decompilers
+fernflower = "2.0.0"
+cfr = "0.2.1"
+vineflower = "1.9.3"
+
+# Runtime depedencies
+mixin-compile-extensions = "0.6.0"
+dev-launch-injector = "0.2.1+build.8"
+terminal-console-appender = "1.2.0"
+jetbrains-annotations = "24.0.1"
+native-support = "1.0.1"
+
+# Forge Runtime depedencies
+javax-annotations = "3.0.2"
+forge-runtime = "2.0.9"
+access-transformers = "3.0.1"
+access-transformers-new = "8.0.5"
+unprotect = "1.2.0"
+asm = "9.3"
+union-relauncher = "1.0.0"
+access-transformers-log4j = "2.17.1"
+
+[libraries]
+# Decompilers
+fernflower = { module = "net.fabricmc:fabric-fernflower", version.ref = "fernflower" }
+cfr = { module = "net.fabricmc:cfr", version.ref = "cfr" }
+vineflower = { module = "org.vineflower:vineflower", version.ref = "vineflower" }
+
+# Runtime depedencies
+mixin-compile-extensions = { module = "net.fabricmc:fabric-mixin-compile-extensions", version.ref = "mixin-compile-extensions" }
+dev-launch-injector = { module = "net.fabricmc:dev-launch-injector", version.ref = "dev-launch-injector" }
+terminal-console-appender = { module = "net.minecrell:terminalconsoleappender", version.ref = "terminal-console-appender" }
+jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
+native-support = { module = "net.fabricmc:fabric-loom-native-support", version.ref = "native-support" }
+
+# Forge Runtime depedencies
+javax-annotations = { module = "com.google.code.findbugs:jsr305", version.ref = "javax-annotations" }
+mixin-remapper-service = { module = "dev.architectury:architectury-mixin-remapper-service", version.ref = "forge-runtime" }
+naming-service = { module = "dev.architectury:architectury-naming-service", version.ref = "forge-runtime" }
+mcp-annotations = { module = "dev.architectury:mcp-annotations", version.ref = "forge-runtime" }
+access-transformers = { module = "net.minecraftforge:accesstransformers", version.ref = "access-transformers" }
+access-transformers-new = { module = "net.minecraftforge:accesstransformers", version.ref = "access-transformers-new" }
+unprotect = { module = "io.github.juuxel:unprotect", version.ref = "unprotect" }
+asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
+union-relauncher = { module = "io.github.juuxel:union-relauncher", version.ref = "union-relauncher" }
+access-transformers-log4j-bom = { module = "org.apache.logging.log4j:log4j-bom", version.ref = "access-transformers-log4j" }

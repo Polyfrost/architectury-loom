@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import com.google.common.base.Suppliers;
@@ -43,6 +44,7 @@ import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
+import org.gradle.api.provider.SetProperty;
 import org.gradle.api.publish.maven.MavenPublication;
 import org.gradle.api.tasks.SourceSet;
 
@@ -52,6 +54,7 @@ import net.fabricmc.loom.api.InterfaceInjectionExtensionAPI;
 import net.fabricmc.loom.api.LoomGradleExtensionAPI;
 import net.fabricmc.loom.api.MixinExtensionAPI;
 import net.fabricmc.loom.api.ModSettings;
+import net.fabricmc.loom.api.NeoForgeExtensionAPI;
 import net.fabricmc.loom.api.RemapConfigurationSettings;
 import net.fabricmc.loom.api.decompilers.DecompilerOptions;
 import net.fabricmc.loom.api.mappings.intermediate.IntermediateMappingsProvider;
@@ -85,6 +88,7 @@ public abstract class LoomGradleExtensionApiImpl implements LoomGradleExtensionA
 	protected final ConfigurableFileCollection log4jConfigs;
 	protected final RegularFileProperty accessWidener;
 	protected final Property<String> customManifest;
+	protected final SetProperty<String> knownIndyBsms;
 	protected final Property<Boolean> transitiveAccessWideners;
 	protected final Property<Boolean> modProvidedJavadoc;
 	protected final Property<String> intermediary;
@@ -121,11 +125,17 @@ public abstract class LoomGradleExtensionApiImpl implements LoomGradleExtensionA
 		this.log4jConfigs = project.files(directories.getDefaultLog4jConfigFile());
 		this.accessWidener = project.getObjects().fileProperty();
 		this.customManifest = project.getObjects().property(String.class);
+		this.knownIndyBsms = project.getObjects().setProperty(String.class).convention(Set.of(
+				"java/lang/invoke/StringConcatFactory",
+				"java/lang/runtime/ObjectMethods",
+				"org/codehaus/groovy/vmplugin/v8/IndyInterface"
+		));
+		this.knownIndyBsms.finalizeValueOnRead();
 		this.transitiveAccessWideners = project.getObjects().property(Boolean.class)
 				.convention(true);
 		this.transitiveAccessWideners.finalizeValueOnRead();
 		this.modProvidedJavadoc = project.getObjects().property(Boolean.class)
-				.convention(project.provider(() -> !isForge()));
+				.convention(project.provider(() -> !isForgeLike()));
 		this.modProvidedJavadoc.finalizeValueOnRead();
 		this.intermediary = project.getObjects().property(String.class)
 				.convention("https://maven.fabricmc.net/net/fabricmc/intermediary/%1$s/intermediary-%1$s-v2.jar");
@@ -175,7 +185,7 @@ public abstract class LoomGradleExtensionApiImpl implements LoomGradleExtensionA
 				ModPlatform platform = ModPlatform.valueOf(Objects.toString(platformProperty).toUpperCase(Locale.ROOT));
 
 				if (platform.isExperimental()) {
-					project.getLogger().warn("Project " + project.getPath() + " is using experimental mod platform " + platform.name() + ". Please report any issues!");
+					project.getLogger().lifecycle("{} support is experimental. Please report any issues!", platform.displayName());
 				}
 
 				return platform;
@@ -273,6 +283,11 @@ public abstract class LoomGradleExtensionApiImpl implements LoomGradleExtensionA
 	@Override
 	public Property<String> getCustomMinecraftManifest() {
 		return customManifest;
+	}
+
+	@Override
+	public SetProperty<String> getKnownIndyBsms() {
+		return knownIndyBsms;
 	}
 
 	@Override
@@ -432,6 +447,14 @@ public abstract class LoomGradleExtensionApiImpl implements LoomGradleExtensionA
 
 	@Override
 	public void setGenerateSrgTiny(Boolean generateSrgTiny) {
+		if (isNeoForge()) {
+			// This is unsupported because supporting the full 2x2 combination of
+			//  [no extra NS] [SRG]
+			//  [mojang]      [SRG+mojang]
+			// is a bit verbose to support.
+			throw new UnsupportedOperationException("SRG is not supported on NeoForge.");
+		}
+
 		this.generateSrgTiny = generateSrgTiny;
 	}
 
@@ -457,6 +480,11 @@ public abstract class LoomGradleExtensionApiImpl implements LoomGradleExtensionA
 	@Override
 	public void forge(Action<ForgeExtensionAPI> action) {
 		action.execute(getForge());
+	}
+
+	@Override
+	public void neoForge(Action<NeoForgeExtensionAPI> action) {
+		action.execute(getNeoForge());
 	}
 
 	// This is here to ensure that LoomGradleExtensionApiImpl compiles without any unimplemented methods
@@ -498,6 +526,11 @@ public abstract class LoomGradleExtensionApiImpl implements LoomGradleExtensionA
 
 		@Override
 		public ForgeExtensionAPI getForge() {
+			throw new RuntimeException("Yeah... something is really wrong");
+		}
+
+		@Override
+		public NeoForgeExtensionAPI getNeoForge() {
 			throw new RuntimeException("Yeah... something is really wrong");
 		}
 	}

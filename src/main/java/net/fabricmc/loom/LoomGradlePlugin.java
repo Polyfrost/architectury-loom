@@ -51,6 +51,7 @@ import net.fabricmc.loom.extension.LoomFiles;
 import net.fabricmc.loom.extension.LoomGradleExtensionImpl;
 import net.fabricmc.loom.task.LoomTasks;
 import net.fabricmc.loom.task.RemapTaskConfiguration;
+import net.fabricmc.loom.util.Constants;
 import net.fabricmc.loom.util.LibraryLocationLogger;
 
 public class LoomGradlePlugin implements BootstrappedPlugin {
@@ -88,6 +89,12 @@ public class LoomGradlePlugin implements BootstrappedPlugin {
 			loggedVersions.add(LOOM_VERSION);
 			System.setProperty("loom.printed.logged", String.join(",", loggedVersions));
 			project.getLogger().lifecycle("Essential Loom: " + LOOM_VERSION);
+
+			if (Constants.PLUGIN_BETA) {
+				project.getLogger().lifecycle("This version of Essential Loom is in beta!");
+			} else if (Constants.PLUGIN_DEPRECATED) {
+				project.getLogger().lifecycle("You are using an outdated version of Essential Loom! This version will not receive any support, please consider updating!");
+			}
 		}
 
 		LibraryLocationLogger.logLibraryVersions();
@@ -99,7 +106,7 @@ public class LoomGradlePlugin implements BootstrappedPlugin {
 
 		// Setup extensions
 		project.getExtensions().create(LoomGradleExtensionAPI.class, "loom", LoomGradleExtensionImpl.class, project, LoomFiles.create(project));
-		project.getExtensions().create("fabricApi", FabricApiExtension.class, project);
+		project.getExtensions().create("fabricApi", FabricApiExtension.class);
 
 		for (Class<? extends Runnable> jobClass : SETUP_JOBS) {
 			project.getObjects().newInstance(jobClass).run();

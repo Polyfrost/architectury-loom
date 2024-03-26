@@ -52,6 +52,7 @@ import org.gradle.api.Project;
 import org.gradle.api.logging.LogLevel;
 
 import net.fabricmc.loom.LoomGradleExtension;
+import net.fabricmc.loom.api.mappings.layered.MappingContext;
 import net.fabricmc.loom.api.mappings.layered.MappingsNamespace;
 import net.fabricmc.loom.configuration.DependencyInfo;
 import net.fabricmc.loom.configuration.providers.mappings.GradleMappingContext;
@@ -238,7 +239,8 @@ public class SrgProvider extends DependencyProvider {
 
 		if (Files.notExists(mojmapTsrg) || extension.refreshDeps()) {
 			try (BufferedWriter writer = Files.newBufferedWriter(mojmapTsrg, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
-				Tsrg2Utils.writeTsrg(visitor -> visitMojmap(visitor, project),
+				GradleMappingContext context = new GradleMappingContext(project, "tmp-mojmap");
+				Tsrg2Utils.writeTsrg(visitor -> visitMojangMappings(visitor, context),
 						MappingsNamespace.NAMED.toString(), false, writer);
 			}
 		}
@@ -255,8 +257,9 @@ public class SrgProvider extends DependencyProvider {
 
 		if (Files.notExists(mojmapTsrg2) || extension.refreshDeps()) {
 			try (BufferedWriter writer = Files.newBufferedWriter(mojmapTsrg2, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+				GradleMappingContext context = new GradleMappingContext(project, "tmp-mojmap");
 				MemoryMappingTree tree = new MemoryMappingTree();
-				visitMojmap(tree, project);
+				visitMojangMappings(tree, context);
 				writer.write(Tsrg2Writer.serialize(tree));
 			}
 		}
@@ -265,21 +268,12 @@ public class SrgProvider extends DependencyProvider {
 		return mojmapTsrg2;
 	}
 
-	private static void visitMojmap(MappingVisitor visitor, Project project) {
-		GradleMappingContext context = new GradleMappingContext(project, "tmp-mojmap");
-
+	public static void visitMojangMappings(MappingVisitor visitor, MappingContext context) {
 		try {
-			FileUtils.deleteDirectory(context.workingDirectory("/").toFile());
 			MojangMappingLayer layer = new MojangMappingsSpec(() -> true, true).createLayer(context);
 			layer.visit(visitor);
 		} catch (IOException e) {
 			throw new UncheckedIOException(e);
-		} finally {
-			try {
-				FileUtils.deleteDirectory(context.workingDirectory("/").toFile());
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
 		}
 	}
 

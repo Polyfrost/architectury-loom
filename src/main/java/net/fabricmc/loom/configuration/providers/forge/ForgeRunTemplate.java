@@ -1,7 +1,7 @@
 /*
  * This file is part of fabric-loom, licensed under the MIT License (MIT).
  *
- * Copyright (c) 2022 FabricMC
+ * Copyright (c) 2022-2023 FabricMC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,18 +24,17 @@
 
 package net.fabricmc.loom.configuration.providers.forge;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.gradle.api.Named;
 
 import net.fabricmc.loom.configuration.ide.RunConfigSettings;
 import net.fabricmc.loom.util.Constants;
-import net.fabricmc.loom.util.Pair;
 import net.fabricmc.loom.util.function.CollectionUtil;
 
 public record ForgeRunTemplate(
@@ -46,6 +45,51 @@ public record ForgeRunTemplate(
 		Map<String, ConfigValue> env,
 		Map<String, ConfigValue> props
 ) implements Named {
+	public static final Codec<ForgeRunTemplate> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+			Codec.STRING.optionalFieldOf("name", "") // note: empty is used since DFU crashes with null
+					.forGetter(ForgeRunTemplate::name),
+			Codec.STRING.fieldOf("main")
+					.forGetter(ForgeRunTemplate::main),
+			ConfigValue.CODEC.listOf().optionalFieldOf("args", List.of())
+					.forGetter(ForgeRunTemplate::args),
+			ConfigValue.CODEC.listOf().optionalFieldOf("jvmArgs", List.of())
+					.forGetter(ForgeRunTemplate::jvmArgs),
+			Codec.unboundedMap(Codec.STRING, ConfigValue.CODEC).optionalFieldOf("env", Map.of())
+					.forGetter(ForgeRunTemplate::env),
+			Codec.unboundedMap(Codec.STRING, ConfigValue.CODEC).optionalFieldOf("props", Map.of())
+					.forGetter(ForgeRunTemplate::props)
+	).apply(instance, ForgeRunTemplate::new));
+
+	public static final Codec<Map<String, ForgeRunTemplate>> MAP_CODEC = Codec.unboundedMap(Codec.STRING, CODEC)
+			.xmap(
+					map -> {
+						final Map<String, ForgeRunTemplate> newMap = new HashMap<>(map);
+
+						// Iterate through all templates and fill in empty names.
+						// The NeoForge format doesn't include the name property, so we'll use the map keys
+						// as a replacement.
+						for (Map.Entry<String, ForgeRunTemplate> entry : newMap.entrySet()) {
+							final ForgeRunTemplate template = entry.getValue();
+
+							if (template.name.isEmpty()) {
+								final ForgeRunTemplate completed = new ForgeRunTemplate(
+										entry.getKey(),
+										template.main,
+										template.args,
+										template.jvmArgs,
+										template.env,
+										template.props
+								);
+
+								entry.setValue(completed);
+							}
+						}
+
+						return newMap;
+					},
+					Function.identity()
+			);
+
 	@Override
 	public String getName() {
 		return name;
@@ -62,30 +106,15 @@ public record ForgeRunTemplate(
 			String resolved = value.resolve(configValueResolver);
 			settings.getEnvironmentVariables().putIfAbsent(key, resolved);
 		});
-	}
 
-	public static ForgeRunTemplate fromJson(JsonObject json) {
-		if (json.has("parents") && !json.getAsJsonArray("parents").isEmpty()) {
-			throw new IllegalArgumentException("Non-empty parents for run config template not supported!");
+		// Add MOD_CLASSES, this is something that ForgeGradle does
+		settings.getEnvironmentVariables().computeIfAbsent("MOD_CLASSES", $ -> ConfigValue.of("{source_roots}").resolve(configValueResolver));
+
+		final ForgeProvider forgeProvider = settings.getExtension().getForgeProvider();
+
+		if (settings.getExtension().isForge() && forgeProvider.getVersion().getMajorVersion() >= Constants.Forge.MIN_UNION_RELAUNCHER_VERSION) {
+			settings.defaultMainClass(Constants.Forge.UNION_RELAUNCHER_MAIN_CLASS);
+			settings.property(Constants.Forge.UNION_RELAUNCHER_MAIN_CLASS_PROPERTY, main);
 		}
-
-		String name = json.getAsJsonPrimitive("name").getAsString();
-		String main = json.getAsJsonPrimitive("main").getAsString();
-		List<ConfigValue> args = json.has("args") ? fromJson(json.getAsJsonArray("args")) : List.of();
-		List<ConfigValue> jvmArgs = json.has("jvmArgs") ? fromJson(json.getAsJsonArray("jvmArgs")) : List.of();
-		Map<String, ConfigValue> env = json.has("env") ? fromJson(json.getAsJsonObject("env"), ConfigValue::of) : Map.of();
-		Map<String, ConfigValue> props = json.has("props") ? fromJson(json.getAsJsonObject("props"), ConfigValue::of) : Map.of();
-		return new ForgeRunTemplate(name, main, args, jvmArgs, env, props);
-	}
-
-	private static List<ConfigValue> fromJson(JsonArray json) {
-		return CollectionUtil.map(json, child -> ConfigValue.of(child.getAsJsonPrimitive().getAsString()));
-	}
-
-	private static <R> Map<String, R> fromJson(JsonObject json, Function<String, R> converter) {
-		return json.entrySet().stream().map(entry -> {
-			String value = entry.getValue().getAsJsonPrimitive().getAsString();
-			return new Pair<>(entry.getKey(), converter.apply(value));
-		}).collect(Collectors.toMap(Pair::left, Pair::right));
 	}
 }

@@ -1,7 +1,7 @@
 /*
  * This file is part of fabric-loom, licensed under the MIT License (MIT).
  *
- * Copyright (c) 2022 FabricMC
+ * Copyright (c) 2022-2023 FabricMC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -34,8 +34,19 @@ public final class IntermediaryNamespaces {
 	 * Returns the intermediary namespace of the project.
 	 */
 	public static String intermediary(Project project) {
+		return intermediaryNamespace(project).toString();
+	}
+
+	/**
+	 * Returns the intermediary namespace of the project.
+	 */
+	public static MappingsNamespace intermediaryNamespace(Project project) {
 		LoomGradleExtension extension = LoomGradleExtension.get(project);
-		return extension.isForge() ? "srg" : "intermediary";
+		return switch (extension.getPlatform().get()) {
+		case FABRIC, QUILT -> MappingsNamespace.INTERMEDIARY;
+		case FORGE -> MappingsNamespace.SRG;
+		case NEOFORGE -> MappingsNamespace.MOJANG;
+		};
 	}
 
 	/**

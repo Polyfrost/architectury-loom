@@ -8,8 +8,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.StringJoiner;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import org.gradle.api.Project;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,18 +29,16 @@ public final class ForgeLoggerConfig {
 			throw new UncheckedIOException(e);
 		}
 
-		final JsonArray libraries = LoomGradleExtension.get(project)
+		final List<String> libraries = LoomGradleExtension.get(project)
 				.getForgeUserdevProvider()
-				.getJson()
-				.getAsJsonArray("libraries");
+				.getConfig()
+				.libraries();
 		boolean found = false;
 
-		for (JsonElement library : libraries) {
-			final String notation = library.getAsString();
-
-			if (LOGGER_CONFIG_ARTIFACTS.stream().anyMatch(artifact -> artifact.matches(notation))) {
+		for (String library : libraries) {
+			if (LOGGER_CONFIG_ARTIFACTS.stream().anyMatch(artifact -> artifact.matches(library))) {
 				final File libraryFile = project.getConfigurations()
-						.detachedConfiguration(project.getDependencies().create(notation))
+						.detachedConfiguration(project.getDependencies().create(library))
 						.setTransitive(false)
 						.getSingleFile();
 

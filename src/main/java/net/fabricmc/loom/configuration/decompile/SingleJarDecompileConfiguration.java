@@ -80,7 +80,7 @@ public class SingleJarDecompileConfiguration extends DecompileConfiguration<Mapp
 				task.setDescription("Decompile Minecraft using Forge's toolchain.");
 				task.setGroup(Constants.TaskGroup.FABRIC);
 
-				task.getInputJar().set(MinecraftPatchedProvider.get(project).getMinecraftSrgJar().toFile());
+				task.getInputJar().set(MinecraftPatchedProvider.get(project).getMinecraftIntermediateJar().toFile());
 				task.getRuntimeJar().set(minecraftJar.toFile());
 			});
 		}

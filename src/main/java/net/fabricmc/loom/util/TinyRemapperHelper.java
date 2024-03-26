@@ -33,6 +33,7 @@ import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 import com.google.common.collect.ImmutableMap;
+import dev.architectury.loom.util.MappingOption;
 import dev.architectury.tinyremapper.IMappingProvider;
 import dev.architectury.tinyremapper.TinyRemapper;
 import org.gradle.api.Project;
@@ -70,8 +71,8 @@ public final class TinyRemapperHelper {
 
 	public static TinyRemapper getTinyRemapper(Project project, SharedServiceManager serviceManager, String fromM, String toM, boolean fixRecords, Consumer<TinyRemapper.Builder> builderConsumer, Set<String> fromClassNames) throws IOException {
 		LoomGradleExtension extension = LoomGradleExtension.get(project);
-		boolean srg = (fromM.equals(MappingsNamespace.SRG.toString()) || toM.equals(MappingsNamespace.SRG.toString())) && extension.isForge();
-		MemoryMappingTree mappingTree = extension.getMappingConfiguration().getMappingsService(serviceManager, srg).getMappingTree();
+		final MappingOption mappingOption = MappingOption.forPlatform(extension).forNamespaces(fromM, toM);
+		MemoryMappingTree mappingTree = extension.getMappingConfiguration().getMappingsService(serviceManager, mappingOption).getMappingTree();
 
 		if (fixRecords && !mappingTree.getSrcNamespace().equals(fromM)) {
 			throw new IllegalStateException("Mappings src namespace must match remap src namespace");
@@ -81,7 +82,7 @@ public final class TinyRemapperHelper {
 
 		TinyRemapper.Builder builder = TinyRemapper.newRemapper()
 				.logUnknownInvokeDynamic(false)
-				.ignoreConflicts(extension.isForge())
+				.ignoreConflicts(extension.isForgeLike())
 				.cacheMappings(true)
 				.threads(Runtime.getRuntime().availableProcessors())
 				.logger(project.getLogger()::lifecycle)
@@ -90,6 +91,7 @@ public final class TinyRemapperHelper {
 				.rebuildSourceFilenames(true)
 				.invalidLvNamePattern(MC_LV_PATTERN)
 				.inferNameFromSameLvIndex(true)
+				.withKnownIndyBsm(extension.getKnownIndyBsms().get())
 				.extraPreApplyVisitor((cls, next) -> {
 					if (fixRecords && !cls.isRecord() && "java/lang/Record".equals(cls.getSuperName())) {
 						return new RecordComponentFixVisitor(next, mappingTree, intermediaryNsId);
@@ -98,7 +100,7 @@ public final class TinyRemapperHelper {
 					return next;
 				});
 
-		if (extension.isForge()) {
+		if (extension.isForgeLike()) {
 			if (!fromClassNames.isEmpty()) {
 				builder.withMappings(InnerClassRemapper.of(fromClassNames, mappingTree, fromM, toM));
 			}

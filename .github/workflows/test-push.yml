@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [8.1.0-jdk17]
+        version: [8.3.0-jdk17]
     runs-on: ubuntu-22.04
     container:
       image: gradle:${{ matrix.version }}
@@ -32,7 +32,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     container:
-      image: gradle:8.1.0-jdk17
+      image: gradle:8.3.0-jdk17
       options: --user root
 
     steps:
@@ -51,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [8.1.0-jdk17]
+        version: [8.3.0-jdk17]
         test: ${{ fromJson(needs.prepare_test_matrix.outputs.matrix) }}
 
     runs-on: ubuntu-22.04
@@ -65,13 +65,6 @@ jobs:
         env:
           TEST_WARNING_MODE: fail
         id: test
-      - name: Publish test results for report
-        uses: actions/upload-artifact@v3
-        if: ${{ failure() || success() }}
-        with:
-          name: Raw Test Results
-          path: build/test-results/**/*.xml
-          retention-days: 1
 
       - uses: actions/upload-artifact@v3
         if: ${{ failure() }}
@@ -106,13 +99,6 @@ jobs:
         env:
           TEST_WARNING_MODE: fail
         id: test
-      - name: Publish test results for report
-        uses: actions/upload-artifact@v3
-        if: ${{ failure() || success() }}
-        with:
-          name: Raw Test Results
-          path: build/test-results/**/*.xml
-          retention-days: 1
 
       - uses: actions/upload-artifact@v3
         if: ${{ failure() }}
@@ -144,30 +130,9 @@ jobs:
           distribution: 'temurin'
 
       - run: ./gradlew test --tests *ReproducibleBuildTest --stacktrace --warning-mode fail
-      - name: Publish test results for report
-        uses: actions/upload-artifact@v3
-        if: ${{ failure() || success() }}
-        with:
-          name: Raw Test Results
-          path: build/test-results/**/*.xml
-          retention-days: 1
 
       - uses: actions/upload-artifact@v3
         if: ${{ failure() }}
         with:
           name: Reproducible Build ${{ matrix.os }} (${{ matrix.java }}) Results
           path: build/reports/
-
-  test_report:
-    runs-on: ubuntu-latest
-    needs: [run_tests, run_tests_windows, reproducible_build_test]
-    if: ${{ failure() || success() }}
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-        with:
-          path: artifacts
-      - name: Publish test report
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          junit_files: "artifacts/**/*.xml"

@@ -40,6 +40,7 @@ import org.apache.commons.io.FileUtils;
 import org.gradle.api.logging.configuration.ConsoleOutput;
 import org.gradle.api.tasks.TaskAction;
 
+import net.fabricmc.loom.build.IntermediaryNamespaces;
 import net.fabricmc.loom.configuration.providers.forge.ConfigValue;
 import net.fabricmc.loom.configuration.providers.forge.ForgeRunTemplate;
 import net.fabricmc.loom.configuration.providers.forge.ForgeRunsProvider;
@@ -60,9 +61,10 @@ public abstract class GenerateDLIConfigTask extends AbstractLoomTask {
 			assetsDirectory = new File(assetsDirectory, "/legacy/" + versionInfo.id());
 		}
 
+		boolean quilt = getExtension().isQuilt();
 		final LaunchConfig launchConfig = new LaunchConfig()
-				.property(!getExtension().isQuilt() ? "fabric.development" : "loader.development", "true")
-				.property(!getExtension().isQuilt() ? "fabric.remapClasspathFile" : "loader.remapClasspathFile", getExtension().getFiles().getRemapClasspathFile().getAbsolutePath())
+				.property(!quilt ? "fabric.development" : "loader.development", "true")
+				.property(!quilt ? "fabric.remapClasspathFile" : "loader.remapClasspathFile", getExtension().getFiles().getRemapClasspathFile().getAbsolutePath())
 				.property("log4j.configurationFile", getAllLog4JConfigFiles())
 				.property("log4j2.formatMsgNoLookups", "true");
 
@@ -74,7 +76,7 @@ public abstract class GenerateDLIConfigTask extends AbstractLoomTask {
 					.property("client", "org.lwjgl.librarypath", nativesPath);
 		}
 
-		if (!getExtension().isModernForge()) {
+		if (!getExtension().isForgeLike() || getExtension().isLegacyForge()) {
 			launchConfig
 					.argument("client", "--assetIndex")
 					.argument("client", getExtension().getMinecraftProvider().getVersionInfo().assetIndex().fabricId(getExtension().getMinecraftProvider().minecraftVersion()))
@@ -82,14 +84,14 @@ public abstract class GenerateDLIConfigTask extends AbstractLoomTask {
 					.argument("client", assetsDirectory.getAbsolutePath());
 		}
 
-		if (!getExtension().isForge()) {
+		if (!getExtension().isForgeLike()) {
 			if (getExtension().areEnvironmentSourceSetsSplit()) {
-				launchConfig.property("client", "fabric.gameJarPath.client", getGameJarPath("client"));
-				launchConfig.property("fabric.gameJarPath", getGameJarPath("common"));
+				launchConfig.property("client", !quilt ? "fabric.gameJarPath.client" : "loader.gameJarPath.client", getGameJarPath("client"));
+				launchConfig.property(!quilt ? "fabric.gameJarPath" : "loader.gameJarPath", getGameJarPath("common"));
 			}
 
 			if (!getExtension().getMods().isEmpty()) {
-				launchConfig.property("fabric.classPathGroups", getClassPathGroups());
+				launchConfig.property(!quilt ? "fabric.classPathGroups" : "loader.classPathGroups", getClassPathGroups());
 			}
 		}
 
@@ -99,7 +101,7 @@ public abstract class GenerateDLIConfigTask extends AbstractLoomTask {
 					.argument("client", "Architectury Loom");
 		}
 
-		if (getExtension().isModernForge()) {
+		if (getExtension().isForgeLike()) {
 			// Find the mapping files for Unprotect to use for figuring out
 			// which classes are from Minecraft.
 			String unprotectMappings = getProject().getConfigurations()
@@ -109,37 +111,46 @@ public abstract class GenerateDLIConfigTask extends AbstractLoomTask {
 					.map(File::getAbsolutePath)
 					.collect(Collectors.joining(File.pathSeparator));
 
+			final String intermediateNs = IntermediaryNamespaces.intermediary(getProject());
+			final String mappingsPath = getExtension().getPlatformMappingFile().toAbsolutePath().toString();
+
 			launchConfig
-					// Should match YarnNamingService.PATH_TO_MAPPINGS in forge-runtime
-					.property("fabric.yarnWithSrg.path", getExtension().getMappingConfiguration().tinyMappingsWithSrg.toAbsolutePath().toString())
 					.property("unprotect.mappings", unprotectMappings)
+					// See ArchitecturyNamingService in forge-runtime
+					.property("architectury.naming.sourceNamespace", intermediateNs)
+					.property("architectury.naming.mappingsPath", mappingsPath);
 
-					.property("mixin.env.remapRefMap", "true");
+			if (getExtension().isForge()) {
+				final List<String> dataGenMods = getExtension().getForge().getDataGenMods();
 
-			final List<String> dataGenMods = getExtension().getForge().getDataGenMods();
+				// Only apply the hardcoded data arguments if the deprecated data generator API is being used.
+				if (!dataGenMods.isEmpty()) {
+					launchConfig
+							.argument("data", "--all")
+							.argument("data", "--mod")
+							.argument("data", String.join(",", getExtension().getForge().getDataGenMods()))
+							.argument("data", "--output")
+							.argument("data", getProject().file("src/generated/resources").getAbsolutePath());
+				}
 
-			// Only apply the hardcoded data arguments if the deprecated data generator API is being used.
-			if (!dataGenMods.isEmpty()) {
-				launchConfig
-						.argument("data", "--all")
-						.argument("data", "--mod")
-						.argument("data", String.join(",", getExtension().getForge().getDataGenMods()))
-						.argument("data", "--output")
-						.argument("data", getProject().file("src/generated/resources").getAbsolutePath());
-			}
+				launchConfig.property("mixin.env.remapRefMap", "true");
 
-			if (PropertyUtil.getAndFinalize(getExtension().getForge().getUseCustomMixin())) {
-				launchConfig.property("mixin.forgeloom.inject.mappings.srg-named", getExtension().getMappingConfiguration().getReplacedTarget(getExtension(), "srg").toAbsolutePath().toString());
-			} else {
-				launchConfig.property("net.minecraftforge.gradle.GradleStart.srg.srg-mcp", getExtension().getMappingConfiguration().srgToNamedSrg.toAbsolutePath().toString());
-			}
+				if (getExtension().isModernForge() && PropertyUtil.getAndFinalize(getExtension().getForge().getUseCustomMixin())) {
+					// See mixin remapper service in forge-runtime
+					launchConfig
+							.property("architectury.mixinRemapper.sourceNamespace", intermediateNs)
+							.property("architectury.mixinRemapper.mappingsPath", mappingsPath);
+				} else {
+					launchConfig.property("net.minecraftforge.gradle.GradleStart.srg.srg-mcp", getExtension().getMappingConfiguration().srgToNamedSrg.toAbsolutePath().toString());
+				}
 
-			Set<String> mixinConfigs = PropertyUtil.getAndFinalize(getExtension().getForge().getMixinConfigs());
+				Set<String> mixinConfigs = PropertyUtil.getAndFinalize(getExtension().getForge().getMixinConfigs());
 
-			if (!mixinConfigs.isEmpty()) {
-				for (String config : mixinConfigs) {
-					launchConfig.argument("-mixin.config");
-					launchConfig.argument(config);
+				if (!mixinConfigs.isEmpty()) {
+					for (String config : mixinConfigs) {
+						launchConfig.argument(getExtension().isLegacyForge() ? "--mixin" : "-mixin.config");
+						launchConfig.argument(config);
+					}
 				}
 			}
 
@@ -154,24 +165,6 @@ public abstract class GenerateDLIConfigTask extends AbstractLoomTask {
 				for (Map.Entry<String, ConfigValue> property : template.props().entrySet()) {
 					launchConfig.property(template.name(), property.getKey(), property.getValue().resolve(configResolver));
 				}
-			}
-		}
-
-		if (getExtension().isLegacyForge()) {
-			launchConfig
-					.argument("client", "--tweakClass")
-					.argument("client", Constants.LegacyForge.FML_TWEAKER)
-					.argument("server", "--tweakClass")
-					.argument("server", Constants.LegacyForge.FML_SERVER_TWEAKER)
-
-					.argument("--accessToken")
-					.argument("undefined")
-
-					.property("net.minecraftforge.gradle.GradleStart.srg.srg-mcp", getExtension().getMappingConfiguration().srgToNamedSrg.toAbsolutePath().toString())
-					.property("mixin.env.remapRefMap", "true");
-
-			for (String config : PropertyUtil.getAndFinalize(getExtension().getForge().getMixinConfigs())) {
-				launchConfig.argument("--mixin").argument(config);
 			}
 		}
 

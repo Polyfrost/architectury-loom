@@ -40,6 +40,9 @@ class PatchedDecompileTest extends Specification implements GradleProjectTestTra
 		gradle.buildGradle.text = gradle.buildGradle.text.replace('@MCVERSION@', mcVersion)
 				.replace('@FORGEVERSION@', forgeVersion)
 				.replace('@MAPPINGS@', 'loom.officialMojangMappings()')
+				.replace('@REPOSITORIES@', '')
+				.replace('@PACKAGE@', 'net.minecraftforge:forge')
+				.replace('@JAVA_VERSION@', javaVersion)
 
 		when:
 		def result = gradle.run(task: "genForgePatchedSources")
@@ -48,9 +51,9 @@ class PatchedDecompileTest extends Specification implements GradleProjectTestTra
 		result.task(":genForgePatchedSources").outcome == SUCCESS
 
 		where:
-		mcVersion | forgeVersion
-		'1.19.2'  | "43.1.1"
-		'1.18.1'  | "39.0.63"
-		'1.17.1'  | "37.0.67"
+		mcVersion | forgeVersion | javaVersion
+		'1.19.2'  | "43.1.1"     | '17'
+		'1.18.1'  | "39.0.63"    | '17'
+		'1.17.1'  | "37.0.67"    | '16'
 	}
 }

@@ -41,10 +41,13 @@ import java.util.regex.Pattern;
 
 import com.google.common.base.Stopwatch;
 import com.google.gson.JsonObject;
+import dev.architectury.loom.neoforge.NeoForgeModDependencies;
+import dev.architectury.loom.util.MappingOption;
 import dev.architectury.tinyremapper.InputTag;
 import dev.architectury.tinyremapper.NonClassCopyMode;
 import dev.architectury.tinyremapper.OutputConsumerPath;
 import dev.architectury.tinyremapper.TinyRemapper;
+import dev.architectury.tinyremapper.extension.mixin.MixinExtension;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.attributes.Usage;
@@ -65,7 +68,7 @@ import net.fabricmc.loom.util.ZipUtils;
 import net.fabricmc.loom.util.kotlin.KotlinClasspathService;
 import net.fabricmc.loom.util.kotlin.KotlinRemapperClassloader;
 import net.fabricmc.loom.util.service.SharedServiceManager;
-import net.fabricmc.loom.util.srg.AtRemapper;
+import net.fabricmc.loom.util.srg.AtClassRemapper;
 import net.fabricmc.loom.util.srg.CoreModClassRemapper;
 import net.fabricmc.mappingio.tree.MemoryMappingTree;
 
@@ -121,6 +124,12 @@ public class ModProcessor {
 	}
 
 	private void stripNestedJars(Path path) {
+		try {
+			ZipUtils.deleteIfExists(path, "META-INF/jarjar/metadata.json");
+		} catch (IOException e) {
+			throw new UncheckedIOException("Failed to strip nested jars from %s".formatted(path), e);
+		}
+
 		if (!ZipUtils.contains(path, "fabric.mod.json")) {
 			if (ZipUtils.contains(path, "quilt.mod.json")) {
 				// Strip out all contained jar info as we dont want loader to try and load the jars contained in dev.
@@ -160,13 +169,14 @@ public class ModProcessor {
 
 		Stopwatch stopwatch = Stopwatch.createStarted();
 
-		boolean srg = (fromM.equals("srg") || toM.equals("srg")) && extension.isForge();
-		MemoryMappingTree mappings = mappingConfiguration.getMappingsService(serviceManager, srg).getMappingTree();
+		MappingOption mappingOption = MappingOption.forPlatform(extension).forNamespaces(fromM, toM);
+		MemoryMappingTree mappings = mappingConfiguration.getMappingsService(serviceManager, mappingOption).getMappingTree();
 		LoggerFilter.replaceSystemOut();
 		TinyRemapper.Builder builder = TinyRemapper.newRemapper()
+				.withKnownIndyBsm(extension.getKnownIndyBsms().get())
+				.withMappings(TinyRemapperHelper.create(mappings, fromM, toM, false))
 				.logger(project.getLogger()::lifecycle)
 				.logUnknownInvokeDynamic(false)
-				.withMappings(TinyRemapperHelper.create(mappings, fromM, toM, false))
 				.renameInvalidLocals(false)
 				.extraAnalyzeVisitor(AccessWidenerAnalyzeVisitorProvider.createFromMods(fromM, remapList, extension.getPlatform().get()));
 
@@ -178,9 +188,13 @@ public class ModProcessor {
 			builder.extension(kotlinRemapperClassloader.getTinyRemapperExtension());
 		}
 
+		if (extension.isNeoForge()) {
+			builder.extension(new MixinExtension());
+		}
+
 		final TinyRemapper remapper = builder.build();
 
-		for (Path minecraftJar : extension.getMinecraftJars(extension.isForge() ? MappingsNamespace.SRG : MappingsNamespace.INTERMEDIARY)) {
+		for (Path minecraftJar : extension.getMinecraftJars(IntermediaryNamespaces.intermediaryNamespace(project))) {
 			remapper.readClassPathAsync(minecraftJar);
 		}
 
@@ -257,9 +271,16 @@ public class ModProcessor {
 			stripNestedJars(output);
 			remapJarManifestEntries(output);
 
-			if (extension.isForge()) {
-				AtRemapper.remap(project.getLogger(), output, mappings);
-				CoreModClassRemapper.remapJar(output, mappings, project.getLogger());
+			if (extension.isForgeLike()) {
+				if (extension.isNeoForge()) {
+					// NeoForge: Fully map ATs
+					NeoForgeModDependencies.remapAts(output, mappings, fromM, toM);
+				} else {
+					// Forge: only map class names, the rest are mapped srg -> named at runtime
+					AtClassRemapper.remap(project, output, mappings);
+				}
+
+				CoreModClassRemapper.remapJar(project, extension.getPlatform().get(), output, mappings);
 			}
 
 			dependency.copyToCache(project, output, null);

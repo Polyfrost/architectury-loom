@@ -24,6 +24,8 @@
 
 package net.fabricmc.loom.configuration.providers.forge;
 
+import com.mojang.serialization.Codec;
+
 /**
  * A string or a variable in a Forge configuration file, or an MCPConfig step or function.
  */
@@ -40,6 +42,16 @@ public sealed interface ConfigValue {
 	 * The variable that refers to a log file for the MCP executor.
 	 */
 	String LOG = "log";
+
+	Codec<ConfigValue> CODEC = Codec.STRING.xmap(ConfigValue::of, configValue -> {
+		if (configValue instanceof Constant constant) {
+			return constant.value();
+		} else if (configValue instanceof Variable variable) {
+			return "{" + variable.name() + "}";
+		}
+
+		throw new IllegalArgumentException("Unmatched config value");
+	});
 
 	String resolve(Resolver variableResolver);
 

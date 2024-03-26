@@ -47,7 +47,7 @@ public final class FunctionLogic implements StepLogic {
 		// The other tools seem to work with the name containing .jar anyway.
 		// Technically, FG supports an "outputExtension" config value for steps, but it's not used in practice.
 		context.setOutput("output.jar");
-		Path jar = context.download(function.getDownloadUrl());
+		Path jar = function.download(context);
 		String mainClass;
 
 		try (JarFile jarFile = new JarFile(jar.toFile())) {

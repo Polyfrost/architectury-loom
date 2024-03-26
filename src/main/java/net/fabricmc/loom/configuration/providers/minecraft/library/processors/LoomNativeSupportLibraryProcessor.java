@@ -30,7 +30,7 @@ import java.util.function.Predicate;
 import net.fabricmc.loom.configuration.providers.minecraft.library.Library;
 import net.fabricmc.loom.configuration.providers.minecraft.library.LibraryContext;
 import net.fabricmc.loom.configuration.providers.minecraft.library.LibraryProcessor;
-import net.fabricmc.loom.util.Constants;
+import net.fabricmc.loom.util.LoomVersions;
 import net.fabricmc.loom.util.Platform;
 
 public class LoomNativeSupportLibraryProcessor extends LibraryProcessor {
@@ -50,13 +50,18 @@ public class LoomNativeSupportLibraryProcessor extends LibraryProcessor {
 			return ApplicationResult.MUST_APPLY;
 		}
 
+		if (platform.getOperatingSystem().isMacOS() && context.isJava19OrLater() && !context.supportsJava19OrLater()) {
+			// Apply when LWJGL has been updated on MacOS to support Java 19
+			return ApplicationResult.MUST_APPLY;
+		}
+
 		// A developer can opt into this
 		return ApplicationResult.CAN_APPLY;
 	}
 
 	@Override
 	public Predicate<Library> apply(Consumer<Library> dependencyConsumer) {
-		dependencyConsumer.accept(Library.fromMaven(Constants.Dependencies.NATIVE_SUPPORT + Constants.Dependencies.Versions.NATIVE_SUPPORT_VERSION, Library.Target.LOCAL_MOD));
+		dependencyConsumer.accept(Library.fromMaven(LoomVersions.NATIVE_SUPPORT.mavenNotation(), Library.Target.LOCAL_MOD));
 		return ALLOW_ALL;
 	}
 }

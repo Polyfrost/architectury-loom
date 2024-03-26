@@ -52,7 +52,7 @@ public final class MappingsService implements SharedService {
 		final MappingConfiguration mappingConfiguration = LoomGradleExtension.get(project).getMappingConfiguration();
 
 		final String name = mappingConfiguration.getBuildServiceName("mappingsProvider", from, to);
-		return MappingsService.create(serviceManager, name, (from.equals("srg") || to.equals("srg")) && LoomGradleExtension.get(project).shouldGenerateSrgTiny() ? mappingConfiguration.tinyMappingsWithSrg : mappingConfiguration.tinyMappings, from, to, false);
+		return MappingsService.create(serviceManager, name, LoomGradleExtension.get(project).getPlatformMappingFile(), from, to, false);
 	}
 
 	private final Options options;

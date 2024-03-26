@@ -70,7 +70,7 @@ public abstract sealed class MinecraftSourceSets permits MinecraftSourceSets.Sin
 				configuration.extendsFrom(configurations.getByName(Constants.Configurations.LOADER_DEPENDENCIES));
 				configuration.extendsFrom(configurations.getByName(Constants.Configurations.LOOM_DEVELOPMENT_DEPENDENCIES));
 
-				if (LoomGradleExtension.get(project).isForge()) {
+				if (LoomGradleExtension.get(project).isForgeLike()) {
 					configurations.getByName(Constants.Configurations.FORGE_RUNTIME_LIBRARY).extendsFrom(configuration);
 				}
 			});
@@ -199,14 +199,15 @@ public abstract sealed class MinecraftSourceSets permits MinecraftSourceSets.Sin
 
 			clientOnlySourceSet.setCompileClasspath(
 					clientOnlySourceSet.getCompileClasspath()
-							.plus(mainSourceSet.getCompileClasspath())
 							.plus(mainSourceSet.getOutput())
 			);
 			clientOnlySourceSet.setRuntimeClasspath(
 					clientOnlySourceSet.getRuntimeClasspath()
-							.plus(mainSourceSet.getRuntimeClasspath())
 							.plus(mainSourceSet.getOutput())
 			);
+
+			extendsFrom(project, clientOnlySourceSet.getCompileClasspathConfigurationName(), mainSourceSet.getCompileClasspathConfigurationName());
+			extendsFrom(project, clientOnlySourceSet.getRuntimeClasspathConfigurationName(), mainSourceSet.getRuntimeClasspathConfigurationName());
 
 			RemapConfigurations.configureClientConfigurations(project, clientOnlySourceSet);
 

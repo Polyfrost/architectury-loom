@@ -203,10 +203,14 @@ public class SourceRemapper {
 			for (Path srgJar : extension.getMinecraftJars(MappingsNamespace.SRG)) {
 				mercury.getClassPath().add(srgJar);
 			}
+		} else if (extension.isNeoForge()) {
+			for (Path mojangJar : extension.getMinecraftJars(MappingsNamespace.MOJANG)) {
+				mercury.getClassPath().add(mojangJar);
+			}
 		}
 
 		Set<File> files = project.getConfigurations()
-				.detachedConfiguration(project.getDependencies().create(Constants.Dependencies.JETBRAINS_ANNOTATIONS + Constants.Dependencies.Versions.JETBRAINS_ANNOTATIONS))
+				.detachedConfiguration(project.getDependencies().create(LoomVersions.JETBRAINS_ANNOTATIONS.mavenNotation()))
 				.resolve();
 
 		for (File file : files) {

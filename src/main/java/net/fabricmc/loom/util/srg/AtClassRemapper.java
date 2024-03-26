@@ -1,7 +1,7 @@
 /*
  * This file is part of fabric-loom, licensed under the MIT License (MIT).
  *
- * Copyright (c) 2020-2021 FabricMC
+ * Copyright (c) 2020-2023 FabricMC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -34,8 +34,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.UnaryOperator;
 
+import org.gradle.api.Project;
 import org.gradle.api.logging.Logger;
 
+import net.fabricmc.loom.build.IntermediaryNamespaces;
 import net.fabricmc.loom.util.Constants;
 import net.fabricmc.loom.util.FileSystemUtil;
 import net.fabricmc.loom.util.function.CollectionUtil;
@@ -46,8 +48,11 @@ import net.fabricmc.mappingio.tree.MappingTree;
  *
  * @author Juuz
  */
-public final class AtRemapper {
-	public static void remap(Logger logger, Path jar, MappingTree mappings) throws IOException {
+public final class AtClassRemapper {
+	public static void remap(Project project, Path jar, MappingTree mappings) throws IOException {
+		final Logger logger = project.getLogger();
+		final String sourceNamespace = IntermediaryNamespaces.intermediary(project);
+
 		try (FileSystemUtil.Delegate fs = FileSystemUtil.getJarFileSystem(jar, false)) {
 			Path atPath = fs.getPath(Constants.Forge.ACCESS_TRANSFORMER_PATH);
 
@@ -76,7 +81,7 @@ public final class AtRemapper {
 					String name = parts[1].replace('.', '/');
 					parts[1] = CollectionUtil.find(
 							mappings.getClasses(),
-							def -> def.getName("srg").equals(name)
+							def -> def.getName(sourceNamespace).equals(name)
 					).map(def -> def.getName("named")).orElse(name).replace('/', '.');
 
 					if (parts.length >= 3) {
@@ -84,7 +89,7 @@ public final class AtRemapper {
 							parts[2] = parts[2].substring(0, parts[2].indexOf('(')) + remapDescriptor(parts[2].substring(parts[2].indexOf('(')), s -> {
 								return CollectionUtil.find(
 										mappings.getClasses(),
-										def -> def.getName("srg").equals(s)
+										def -> def.getName(sourceNamespace).equals(s)
 								).map(def -> def.getName("named")).orElse(s);
 							});
 						}

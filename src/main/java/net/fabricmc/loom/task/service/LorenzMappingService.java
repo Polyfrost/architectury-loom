@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Objects;
 
+import dev.architectury.loom.util.MappingOption;
 import org.cadixdev.lorenz.MappingSet;
 
 import net.fabricmc.loom.api.mappings.layered.MappingsNamespace;
@@ -46,8 +47,15 @@ public final class LorenzMappingService implements SharedService {
 
 	public static synchronized LorenzMappingService create(SharedServiceManager sharedServiceManager, MappingConfiguration mappingConfiguration, MappingsNamespace from, MappingsNamespace to) {
 		return sharedServiceManager.getOrCreateService(mappingConfiguration.getBuildServiceName("LorenzMappingService", from.toString(), to.toString()), () -> {
-			boolean srg = (from == MappingsNamespace.SRG || to == MappingsNamespace.SRG);
-			MemoryMappingTree m = mappingConfiguration.getMappingsService(sharedServiceManager, srg).getMappingTree();
+			MappingOption mappingOption = MappingOption.DEFAULT;
+
+			if (from == MappingsNamespace.SRG || to == MappingsNamespace.SRG) {
+				mappingOption = MappingOption.WITH_SRG;
+			} else if (from == MappingsNamespace.MOJANG || to == MappingsNamespace.MOJANG) {
+				mappingOption = MappingOption.WITH_MOJANG;
+			}
+
+			MemoryMappingTree m = mappingConfiguration.getMappingsService(sharedServiceManager, mappingOption).getMappingTree();
 
 			try {
 				try (var reader = new TinyMappingsReader(m, from.toString(), to.toString())) {

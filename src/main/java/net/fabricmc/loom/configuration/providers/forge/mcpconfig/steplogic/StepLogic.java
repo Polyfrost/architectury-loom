@@ -1,7 +1,7 @@
 /*
  * This file is part of fabric-loom, licensed under the MIT License (MIT).
  *
- * Copyright (c) 2022 FabricMC
+ * Copyright (c) 2022-2023 FabricMC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -61,7 +61,8 @@ public interface StepLogic {
 		/** Mappings extracted from {@code data.mappings} in the MCPConfig JSON. */
 		Path mappings();
 		String resolve(ConfigValue value);
-		Path download(String url) throws IOException;
+		Path downloadFile(String url) throws IOException;
+		Path downloadDependency(String notation);
 		DownloadBuilder downloadBuilder(String url);
 		void javaexec(Action<? super JavaExecSpec> configurator);
 		Set<File> getMinecraftLibraries();

@@ -25,6 +25,7 @@
 package net.fabricmc.loom.task.service;
 
 import java.io.Serializable;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.jar.Attributes;
@@ -43,6 +44,7 @@ import net.fabricmc.loom.LoomGradleExtension;
 import net.fabricmc.loom.LoomGradlePlugin;
 import net.fabricmc.loom.configuration.InstallerData;
 import net.fabricmc.loom.util.Constants;
+import net.fabricmc.loom.util.LoomVersions;
 
 public abstract class JarManifestService implements BuildService<JarManifestService.Params> {
 	interface Params extends BuildServiceParameters {
@@ -63,7 +65,7 @@ public abstract class JarManifestService implements BuildService<JarManifestServ
 
 				params.getGradleVersion().set(GradleVersion.current().getVersion());
 				params.getLoomVersion().set(LoomGradlePlugin.LOOM_VERSION);
-				params.getMCEVersion().set(Constants.Dependencies.Versions.MIXIN_COMPILE_EXTENSIONS);
+				params.getMCEVersion().set(LoomVersions.MIXIN_COMPILE_EXTENSIONS.version());
 				params.getMinecraftVersion().set(project.provider(() -> extension.getMinecraftProvider().minecraftVersion()));
 				params.getTinyRemapperVersion().set(tinyRemapperVersion.orElse("unknown"));
 				params.getFabricLoaderVersion().set(project.provider(() -> Optional.ofNullable(extension.getInstallerData()).map(InstallerData::version).orElse("unknown")));
@@ -73,12 +75,19 @@ public abstract class JarManifestService implements BuildService<JarManifestServ
 	}
 
 	public void apply(Manifest manifest, Map<String, String> extraValues) {
-		// Don't set when running the reproducible build tests as it will break them when anything updates
+		Attributes attributes = manifest.getMainAttributes();
+
+		extraValues.entrySet().stream()
+				.sorted(Comparator.comparing(Map.Entry::getKey))
+				.forEach(entry -> {
+					attributes.putValue(entry.getKey(), entry.getValue());
+				});
+
+		// Don't set version attributes when running the reproducible build tests as it will break them when anything updates
 		if (Boolean.getBoolean("loom.test.reproducible")) {
 			return;
 		}
 
-		Attributes attributes = manifest.getMainAttributes();
 		Params p = getParameters();
 
 		attributes.putValue("Fabric-Gradle-Version", p.getGradleVersion().get());
@@ -93,17 +102,13 @@ public abstract class JarManifestService implements BuildService<JarManifestServ
 			attributes.putValue("Fabric-Mixin-Version", p.getMixinVersion().get().version());
 			attributes.putValue("Fabric-Mixin-Group", p.getMixinVersion().get().group());
 		}
-
-		for (Map.Entry<String, String> entry : extraValues.entrySet()) {
-			attributes.putValue(entry.getKey(), entry.getValue());
-		}
 	}
 
 	private record MixinVersion(String group, String version) implements Serializable { }
 
 	private static Provider<MixinVersion> getMixinVersion(Project project) {
 		return project.getConfigurations().named(Constants.Configurations.LOADER_DEPENDENCIES).map(configuration -> {
-			if (LoomGradleExtension.get(project).isForge()) return new MixinVersion("unknown", "unknown");
+			if (LoomGradleExtension.get(project).isForgeLike()) return new MixinVersion("unknown", "unknown");
 
 			// Not super ideal that this uses the mod compile classpath, should prob look into making this not a thing at somepoint
 			Optional<Dependency> dependency = configuration

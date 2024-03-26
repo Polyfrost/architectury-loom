@@ -36,6 +36,7 @@ import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.util.PatternSet;
 
+import net.fabricmc.loom.LoomGradleExtension;
 import net.fabricmc.loom.api.MixinExtensionAPI;
 import net.fabricmc.loom.build.IntermediaryNamespaces;
 
@@ -49,8 +50,7 @@ public abstract class MixinExtensionApiImpl implements MixinExtensionAPI {
 	public MixinExtensionApiImpl(Project project) {
 		this.project = Objects.requireNonNull(project);
 		this.useMixinAp = project.getObjects().property(Boolean.class)
-				// .convention(project.provider(() -> LoomGradleExtension.get(project).isForge()));
-				.convention(true);
+				.convention(project.provider(() -> !LoomGradleExtension.get(project).isNeoForge()));
 
 		this.refmapTargetNamespace = project.getObjects().property(String.class)
 				.convention(project.provider(() -> IntermediaryNamespaces.intermediary(project)));

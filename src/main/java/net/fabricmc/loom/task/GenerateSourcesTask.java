@@ -192,7 +192,7 @@ public abstract class GenerateSourcesTask extends AbstractLoomTask {
 		}
 
 		// Inject Forge's own sources
-		if (getExtension().isForge()) {
+		if (getExtension().isForgeLike()) {
 			try (var serviceManager = new ScopedSharedServiceManager()) {
 				ForgeSourcesRemapper.addForgeSources(getProject(), serviceManager, getOutputJar().get().getAsFile().toPath());
 			}
@@ -296,7 +296,7 @@ public abstract class GenerateSourcesTask extends AbstractLoomTask {
 			params.getClassPath().setFrom(getProject().getConfigurations().getByName(Constants.Configurations.MINECRAFT_COMPILE_LIBRARIES));
 
 			// Architectury
-			params.getForge().set(getExtension().isForge());
+			params.getForge().set(getExtension().isForgeLike());
 		});
 
 		try {
@@ -416,9 +416,12 @@ public abstract class GenerateSourcesTask extends AbstractLoomTask {
 			if (Files.exists(linemap)) {
 				if (getParameters().getForge().get()) {
 					try {
-						// Remove Forge classes from linemap
+						// Remove Forge and NeoForge classes from linemap
 						// TODO: We should instead not decompile Forge's classes at all
-						LineMapVisitor.process(linemap, next -> new LineMapClassFilter(next, name -> !name.startsWith("net/minecraftforge/")));
+						LineMapVisitor.process(linemap, next -> new LineMapClassFilter(next, name -> {
+							// Skip both Forge and NeoForge classes.
+							return !name.startsWith("net/minecraftforge/") && !name.startsWith("net/neoforged/");
+						}));
 					} catch (IOException e) {
 						throw new UncheckedIOException("Failed to process linemap", e);
 					}
@@ -470,7 +473,7 @@ public abstract class GenerateSourcesTask extends AbstractLoomTask {
 	}
 
 	private Path getMappings() {
-		Path inputMappings = getExtension().isForge() ? getExtension().getMappingConfiguration().tinyMappingsWithSrg : getExtension().getMappingConfiguration().tinyMappings;
+		Path inputMappings = getExtension().getPlatformMappingFile();
 
 		MemoryMappingTree mappingTree = new MemoryMappingTree();
 

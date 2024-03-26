@@ -28,6 +28,8 @@ import org.objectweb.asm.Opcodes;
 
 public class Constants {
 	public static final String PLUGIN_ID = "gg.essential.loom";
+	public static final boolean PLUGIN_BETA = false;
+	public static final boolean PLUGIN_DEPRECATED = false;
 	public static final String LIBRARIES_BASE = "https://libraries.minecraft.net/";
 	public static final String RESOURCES_BASE = "https://resources.download.minecraft.net/";
 	public static final String VERSION_MANIFESTS = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
@@ -74,6 +76,7 @@ public class Constants {
 		public static final String SRG = "srg";
 		public static final String MCP_CONFIG = "mcp";
 		public static final String FORGE = "forge";
+		public static final String NEOFORGE = "neoForge";
 		public static final String FORGE_USERDEV = "forgeUserdev";
 		public static final String FORGE_INSTALLER = "forgeInstaller";
 		public static final String FORGE_UNIVERSAL = "forgeUniversal";
@@ -105,46 +108,6 @@ public class Constants {
 		public static final String NAMED_ELEMENTS = "namedElements";
 
 		private Configurations() {
-		}
-	}
-
-	/**
-	 * Constants related to dependencies.
-	 */
-	public static final class Dependencies {
-		public static final String MIXIN_COMPILE_EXTENSIONS = "net.fabricmc:fabric-mixin-compile-extensions:";
-		public static final String DEV_LAUNCH_INJECTOR = "net.fabricmc:dev-launch-injector:";
-		public static final String TERMINAL_CONSOLE_APPENDER = "net.minecrell:terminalconsoleappender:";
-		public static final String JETBRAINS_ANNOTATIONS = "org.jetbrains:annotations:";
-		public static final String NATIVE_SUPPORT = "net.fabricmc:fabric-loom-native-support:";
-		public static final String JAVAX_ANNOTATIONS = "com.google.code.findbugs:jsr305:"; // I hate that I have to add these.
-		public static final String FORGE_RUNTIME = "dev.architectury:architectury-loom-runtime:";
-		public static final String ACCESS_TRANSFORMERS = "net.minecraftforge:accesstransformers:";
-		public static final String UNPROTECT = "io.github.juuxel:unprotect:";
-		// Used to upgrade the ASM version for the AT tool.
-		public static final String ASM = "org.ow2.asm:asm:";
-
-		private Dependencies() {
-		}
-
-		/**
-		 * Constants for versions of dependencies.
-		 */
-		public static final class Versions {
-			public static final String MIXIN_COMPILE_EXTENSIONS = "0.6.0";
-			public static final String DEV_LAUNCH_INJECTOR = "0.2.1+build.8";
-			public static final String TERMINAL_CONSOLE_APPENDER = "1.2.0";
-			public static final String JETBRAINS_ANNOTATIONS = "24.0.1";
-			public static final String NATIVE_SUPPORT_VERSION = "1.0.1";
-			public static final String JAVAX_ANNOTATIONS = "3.0.2";
-			public static final String FORGE_RUNTIME = "1.1.8";
-			public static final String ACCESS_TRANSFORMERS = "3.0.1";
-			public static final String ACCESS_TRANSFORMERS_NEW = "8.0.5";
-			public static final String UNPROTECT = "1.2.0";
-			public static final String ASM = "9.3";
-
-			private Versions() {
-			}
 		}
 	}
 
@@ -187,12 +150,20 @@ public class Constants {
 		public static final String DISABLE_REMAPPED_VARIANTS = "fabric.loom.disableRemappedVariants";
 		public static final String DISABLE_PROJECT_DEPENDENT_MODS = "fabric.loom.disableProjectDependentMods";
 		public static final String LIBRARY_PROCESSORS = "fabric.loom.libraryProcessors";
+		public static final String ALLOW_MISMATCHED_PLATFORM_VERSION = "loom.allowMismatchedPlatformVersion";
 	}
 
 	public static final class Forge {
 		public static final String UNDETERMINED_MAIN_CLASS = "[Forge] Main class has not been determined yet!";
 		public static final String ACCESS_TRANSFORMER_PATH = "META-INF/accesstransformer.cfg";
 		public static final String MIXIN_CONFIGS_MANIFEST_KEY = "MixinConfigs";
+
+		/**
+		 * The minimum Forge version that needs Union Relauncher to use {@code MOD_CLASSES}.
+		 */
+		public static final int MIN_UNION_RELAUNCHER_VERSION = 49;
+		public static final String UNION_RELAUNCHER_MAIN_CLASS = "juuxel.unionrelauncher.UnionRelauncher";
+		public static final String UNION_RELAUNCHER_MAIN_CLASS_PROPERTY = "unionRelauncher.mainClass";
 
 		private Forge() {
 		}
