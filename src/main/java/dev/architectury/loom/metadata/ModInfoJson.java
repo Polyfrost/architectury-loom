@@ -9,6 +9,8 @@ import com.google.gson.JsonObject;
 import net.fabricmc.loom.LoomGradlePlugin;
 import net.fabricmc.loom.configuration.ifaceinject.InterfaceInjectionProcessor;
 
+import net.fabricmc.loom.util.ModPlatform;
+
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -64,6 +66,11 @@ public class ModInfoJson implements ModMetadataFile {
 
 	@Override
 	public Set<String> getAccessWideners() {
+		return Set.of();
+	}
+
+	@Override
+	public Set<String> getAccessTransformers(ModPlatform platform) {
 		return Set.of();
 	}
 
