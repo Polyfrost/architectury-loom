@@ -88,12 +88,12 @@ public class LoomGradlePlugin implements BootstrappedPlugin {
 		if (!loggedVersions.contains(LOOM_VERSION)) {
 			loggedVersions.add(LOOM_VERSION);
 			System.setProperty("loom.printed.logged", String.join(",", loggedVersions));
-			project.getLogger().lifecycle("Essential Loom: " + LOOM_VERSION);
+			project.getLogger().lifecycle("Polyfrost Loom: " + LOOM_VERSION);
 
 			if (Constants.PLUGIN_BETA) {
-				project.getLogger().lifecycle("This version of Essential Loom is in beta!");
+				project.getLogger().lifecycle("This version of Polyfrost Loom is in beta!");
 			} else if (Constants.PLUGIN_DEPRECATED) {
-				project.getLogger().lifecycle("You are using an outdated version of Essential Loom! This version will not receive any support, please consider updating!");
+				project.getLogger().lifecycle("You are using an outdated version of Polyfrost Loom! This version will not receive any support, please consider updating!");
 			}
 		}
 
