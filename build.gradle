@@ -53,7 +53,7 @@ group = "gg.essential"
 def baseVersion = '1.4'
 
 def ENV = System.getenv()
-version = baseVersion + ".polyfrost.3"
+version = baseVersion + ".polyfrost.1"
 
 logger.lifecycle(":building plugin v${version}")
 
