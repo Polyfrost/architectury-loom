@@ -55,10 +55,6 @@ import de.oceanlabs.mcp.mcinjector.adaptors.ParameterAnnotationFixer;
 import dev.architectury.loom.forge.UserdevConfig;
 import dev.architectury.loom.util.MappingOption;
 import dev.architectury.loom.util.TempFiles;
-import dev.architectury.tinyremapper.InputTag;
-import dev.architectury.tinyremapper.NonClassCopyMode;
-import dev.architectury.tinyremapper.OutputConsumerPath;
-import dev.architectury.tinyremapper.TinyRemapper;
 import org.gradle.api.Project;
 import org.gradle.api.logging.LogLevel;
 import org.gradle.api.logging.Logger;
@@ -93,6 +89,10 @@ import net.fabricmc.loom.util.srg.CoreModClassRemapper;
 import net.fabricmc.loom.util.srg.InnerClassRemapper;
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.mappingio.tree.MemoryMappingTree;
+import net.fabricmc.tinyremapper.InputTag;
+import net.fabricmc.tinyremapper.NonClassCopyMode;
+import net.fabricmc.tinyremapper.OutputConsumerPath;
+import net.fabricmc.tinyremapper.TinyRemapper;
 
 public class MinecraftPatchedProvider {
 	private static final String LOOM_PATCH_VERSION_KEY = "Loom-Patch-Version";
@@ -226,15 +226,12 @@ public class MinecraftPatchedProvider {
 	}
 
 	private TinyRemapper buildRemapper(SharedServiceManager serviceManager, Path input) throws IOException {
-		Path[] libraries = TinyRemapperHelper.getMinecraftCompileLibraries(project);
 		final MappingOption mappingOption = MappingOption.forPlatform(getExtension());
 		TinyMappingsService mappingsService = getExtension().getMappingConfiguration().getMappingsService(serviceManager, mappingOption);
 		final String sourceNamespace = IntermediaryNamespaces.intermediary(project);
 		MemoryMappingTree mappings = mappingsService.getMappingTree();
 
 		TinyRemapper remapper = TinyRemapper.newRemapper()
-				.logger(logger::lifecycle)
-				.logUnknownInvokeDynamic(false)
 				.withMappings(TinyRemapperHelper.create(mappings, sourceNamespace, "official", true))
 				.withMappings(InnerClassRemapper.of(InnerClassRemapper.readClassNames(input), mappings, sourceNamespace, "official"))
 				.renameInvalidLocals(true)
@@ -245,8 +242,6 @@ public class MinecraftPatchedProvider {
 			MappingsProviderVerbose.saveFile(remapper);
 		}
 
-		remapper.readClassPath(libraries);
-		remapper.prepareClasses();
 		return remapper;
 	}
 
