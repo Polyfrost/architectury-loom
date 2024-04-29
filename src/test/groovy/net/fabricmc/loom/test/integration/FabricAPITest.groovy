@@ -53,8 +53,8 @@ class FabricAPITest extends Specification implements GradleProjectTestTrait {
 
 		// Set the version to something constant
 		gradle.buildGradle.text = gradle.buildGradle.text.replace('project.version + "+" + (ENV.GITHUB_RUN_NUMBER ? "" : "local-") + getBranch()', "\"$API_VERSION\"")
-				.replace('id "fabric-loom" version "0.9.50"', 'id "gg.essential.loom"')
-				.replace('"fabric-loom"', '"gg.essential.loom"')
+				.replace('id "fabric-loom" version "0.9.50"', 'id "org.polyfrost.loom"')
+				.replace('"fabric-loom"', '"org.polyfrost.loom"')
 
 		// Disable the mixin ap if needed. Fabric API is a large enough test project to see if something breaks.
 		if (disableMixinAp) {

@@ -1,10 +1,7 @@
-# Essential Loom
+# Polyfrost Loom
 
 A fork of [Architectury Loom](https://github.com/architectury/architectury-loom/), primarily to support legacy forge versions
-but with some other changes for our purposes. Used by [Essential Gradle Toolkit](https://github.com/EssentialGG/essential-gradle-toolkit/).
-
-Talk to us on [Discord](https://discord.gg/essential). Use the `#programmer-chat` channel for Essential Loom discussions.
-Issues can be reported on Discord or using GitHub issues.
+but with some other changes for our purposes. Used by [Polyfrost Gradle Toolkit](https://github.com/Polyfrost/polyfrost-gradle-toolkit/).
 
 # Original Readme
 

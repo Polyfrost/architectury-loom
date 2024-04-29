@@ -3,7 +3,7 @@ import java.util.Properties
 plugins {
 	kotlin("jvm") version "1.7.22"
 	kotlin("plugin.serialization") version "1.7.22"
-    id("gg.essential.loom")
+    id("org.polyfrost.loom")
 	`maven-publish`
 }
 

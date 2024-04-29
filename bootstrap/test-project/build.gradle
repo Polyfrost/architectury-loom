@@ -1,5 +1,5 @@
 plugins {
-	id 'gg.essential.loom' version '0.13.local'
+	id 'org.polyfrost.loom' version '0.13.local'
 }
 
 dependencies {

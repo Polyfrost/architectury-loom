@@ -49,7 +49,7 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
 	}
 }
 
-group = "gg.essential"
+group = "org.polyfrost"
 def baseVersion = '1.5'
 
 def ENV = System.getenv()
@@ -282,7 +282,7 @@ codenarc {
 gradlePlugin {
 	plugins {
 		fabricLoom {
-			id = 'gg.essential.loom'
+			id = 'org.polyfrost.loom'
 			implementationClass = 'net.fabricmc.loom.bootstrap.LoomGradlePluginBootstrap'
 		}
 	}

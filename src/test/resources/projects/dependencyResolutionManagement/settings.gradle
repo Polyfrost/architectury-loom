@@ -1,11 +1,11 @@
 pluginManagement {
 	plugins {
-		id 'gg.essential.loom'
+		id 'org.polyfrost.loom'
 	}
 }
 
 plugins {
-	id 'gg.essential.loom'
+	id 'org.polyfrost.loom'
 }
 
 dependencyResolutionManagement {

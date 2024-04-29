@@ -1,5 +1,5 @@
 plugins {
-	id 'gg.essential.loom'
+	id 'org.polyfrost.loom'
 }
 
 version = project.mod_version
