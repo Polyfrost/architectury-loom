@@ -59,7 +59,7 @@ public abstract class GeneratedIntermediateMappingsProvider extends Intermediate
 				}
 			});
 
-			try (MappingWriter writer = MappingWriter.create(tinyMappings, MappingFormat.TINY_2)) {
+			try (MappingWriter writer = MappingWriter.create(tinyMappings, MappingFormat.TINY_2_FILE)) {
 				MappingReader.read(tinyV1, writer);
 			}
 		} finally {

@@ -149,7 +149,7 @@ public abstract class RemapJarTask extends AbstractRemapJarTask {
 		getInjectAccessWidener().convention(false);
 
 		Configuration includeConfiguration = configurations.getByName(Constants.Configurations.INCLUDE);
-		IncludedJarFactory factory = new IncludedJarFactory(getProject());
+		IncludedJarFactory factory = new IncludedJarFactory(this);
 
 		if (!LoomGradleExtension.get(getProject()).isForgeLike()) {
 			getNestedJars().from(factory.getNestedJars(includeConfiguration));
