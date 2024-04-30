@@ -31,12 +31,17 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import javax.inject.Inject;
 
+import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.file.FileCollection;
+import org.gradle.api.logging.Logger;
+import org.gradle.api.logging.Logging;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.tasks.AbstractCopyTask;
@@ -68,8 +73,10 @@ import net.fabricmc.loom.configuration.providers.forge.SrgProvider;
 import net.fabricmc.loom.configuration.providers.forge.mcpconfig.McpConfigProvider;
 import net.fabricmc.loom.configuration.providers.forge.minecraft.ForgeMinecraftProvider;
 import net.fabricmc.loom.configuration.providers.mappings.GeneratedIntermediateMappingsProvider;
+import net.fabricmc.loom.configuration.providers.mappings.LayeredMappingsFactory;
 import net.fabricmc.loom.configuration.providers.mappings.MappingConfiguration;
 import net.fabricmc.loom.configuration.providers.minecraft.MinecraftJarConfiguration;
+import net.fabricmc.loom.configuration.providers.minecraft.MinecraftMetadataProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.MinecraftProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.MinecraftSourceSets;
 import net.fabricmc.loom.configuration.providers.minecraft.mapped.AbstractMappedMinecraftProvider;
@@ -83,6 +90,7 @@ import net.fabricmc.loom.util.Checksum;
 import net.fabricmc.loom.util.Constants;
 import net.fabricmc.loom.util.ExceptionUtil;
 import net.fabricmc.loom.util.LoomVersions;
+import net.fabricmc.loom.util.ProcessUtil;
 import net.fabricmc.loom.util.gradle.GradleUtils;
 import net.fabricmc.loom.util.gradle.SourceSetHelper;
 import net.fabricmc.loom.util.service.ScopedSharedServiceManager;
@@ -111,20 +119,24 @@ public abstract class CompileConfiguration implements Runnable {
 
 			final boolean previousRefreshDeps = extension.refreshDeps();
 
-			if (getAndLock()) {
-				getProject().getLogger().lifecycle("Found existing cache lock file, rebuilding loom cache. This may have been caused by a failed or canceled build.");
+			final LockResult lockResult = acquireProcessLockWaiting(getLockFile());
+
+			if (lockResult != LockResult.ACQUIRED_CLEAN) {
+				getProject().getLogger().lifecycle("Found existing cache lock file ({}), rebuilding loom cache. This may have been caused by a failed or canceled build.", lockResult);
 				extension.setRefreshDeps(true);
 			}
 
 			try {
 				setupMinecraft(configContext);
+
+				LoomDependencyManager dependencyManager = new LoomDependencyManager();
+				extension.setDependencyManager(dependencyManager);
+				dependencyManager.handleDependencies(getProject(), serviceManager);
 			} catch (Exception e) {
+				ExceptionUtil.printFileLocks(e, getProject());
+				disownLock();
 				throw ExceptionUtil.createDescriptiveWrapper(RuntimeException::new, "Failed to setup Minecraft", e);
 			}
-
-			LoomDependencyManager dependencyManager = new LoomDependencyManager();
-			extension.setDependencyManager(dependencyManager);
-			dependencyManager.handleDependencies(getProject(), serviceManager);
 
 			releaseLock();
 			extension.setRefreshDeps(previousRefreshDeps);
@@ -188,10 +200,17 @@ public abstract class CompileConfiguration implements Runnable {
 	private synchronized void setupMinecraft(ConfigContext configContext) throws Exception {
 		final Project project = configContext.project();
 		final LoomGradleExtension extension = configContext.extension();
-		final MinecraftJarConfiguration jarConfiguration = extension.getMinecraftJarConfiguration().get();
 
-		// Provide the vanilla mc jars -- TODO share across getProject()s.
-		final MinecraftProvider minecraftProvider = jarConfiguration.getMinecraftProviderFunction().apply(configContext);
+		final MinecraftMetadataProvider metadataProvider = MinecraftMetadataProvider.create(configContext);
+
+		var jarConfiguration = extension.getMinecraftJarConfiguration().get();
+
+		if (jarConfiguration == MinecraftJarConfiguration.MERGED && !metadataProvider.getVersionMeta().isVersionOrNewer(Constants.RELEASE_TIME_1_3)) {
+			jarConfiguration = MinecraftJarConfiguration.LEGACY_MERGED;
+		}
+
+		// Provide the vanilla mc jars
+		final MinecraftProvider minecraftProvider = jarConfiguration.createMinecraftProvider(metadataProvider, configContext);
 
 		if (extension.isForgeLike() && !(minecraftProvider instanceof ForgeMinecraftProvider)) {
 			throw new UnsupportedOperationException("Using Forge with split jars is not supported!");
@@ -199,6 +218,9 @@ public abstract class CompileConfiguration implements Runnable {
 
 		extension.setMinecraftProvider(minecraftProvider);
 		minecraftProvider.provide();
+
+		// Created any layered mapping files.
+		LayeredMappingsFactory.afterEvaluate(configContext);
 
 		// This needs to run after MinecraftProvider.initFiles and MinecraftLibraryProvider.provide
 		// but before MinecraftPatchedProvider.provide.
@@ -237,15 +259,15 @@ public abstract class CompileConfiguration implements Runnable {
 		}
 
 		// Provide the remapped mc jars
-		final IntermediaryMinecraftProvider<?> intermediaryMinecraftProvider = jarConfiguration.getIntermediaryMinecraftProviderBiFunction().apply(project, minecraftProvider);
-		NamedMinecraftProvider<?> namedMinecraftProvider = jarConfiguration.getNamedMinecraftProviderBiFunction().apply(project, minecraftProvider);
+		final IntermediaryMinecraftProvider<?> intermediaryMinecraftProvider = jarConfiguration.createIntermediaryMinecraftProvider(project);
+		NamedMinecraftProvider<?> namedMinecraftProvider = jarConfiguration.createNamedMinecraftProvider(project);
 
 		registerGameProcessors(configContext);
 		MinecraftJarProcessorManager minecraftJarProcessorManager = MinecraftJarProcessorManager.create(getProject());
 
 		if (minecraftJarProcessorManager != null) {
 			// Wrap the named MC provider for one that will provide the processed jars
-			namedMinecraftProvider = jarConfiguration.getProcessedNamedMinecraftProviderBiFunction().apply(namedMinecraftProvider, minecraftJarProcessorManager);
+			namedMinecraftProvider = jarConfiguration.createProcessedNamedMinecraftProvider(namedMinecraftProvider, minecraftJarProcessorManager);
 		}
 
 		final var provideContext = new AbstractMappedMinecraftProvider.ProvideContext(true, extension.refreshDeps(), configContext);
@@ -257,11 +279,11 @@ public abstract class CompileConfiguration implements Runnable {
 		namedMinecraftProvider.provide(provideContext);
 
 		if (extension.isForge()) {
-			final SrgMinecraftProvider<?> srgMinecraftProvider = jarConfiguration.getSrgMinecraftProviderBiFunction().apply(project, minecraftProvider);
+			final SrgMinecraftProvider<?> srgMinecraftProvider = jarConfiguration.createSrgMinecraftProvider(project);
 			extension.setSrgMinecraftProvider(srgMinecraftProvider);
 			srgMinecraftProvider.provide(provideContext);
 		} else if (extension.isNeoForge()) {
-			final MojangMappedMinecraftProvider<?> mojangMappedMinecraftProvider = jarConfiguration.getMojangMappedMinecraftProviderBiFunction().apply(project, minecraftProvider);
+			final MojangMappedMinecraftProvider<?> mojangMappedMinecraftProvider = jarConfiguration.createMojangMappedMinecraftProvider(project);
 			extension.setMojangMappedMinecraftProvider(mojangMappedMinecraftProvider);
 			mojangMappedMinecraftProvider.provide(provideContext);
 		}
@@ -328,36 +350,161 @@ public abstract class CompileConfiguration implements Runnable {
 		final LoomGradleExtension extension = configContext.extension();
 
 		extension.getMinecraftJarConfiguration().get()
-				.getDecompileConfigurationBiFunction()
-				.apply(configContext.project(), extension.getNamedMinecraftProvider())
+				.createDecompileConfiguration(getProject())
 				.afterEvaluation();
 	}
 
-	private Path getLockFile() {
+	private LockFile getLockFile() {
 		final LoomGradleExtension extension = LoomGradleExtension.get(getProject());
 		final Path cacheDirectory = extension.getFiles().getUserCache().toPath();
 		final String pathHash = Checksum.projectHash(getProject());
-		return cacheDirectory.resolve("." + pathHash + ".lock");
+		return new LockFile(
+				cacheDirectory.resolve("." + pathHash + ".lock"),
+				"Lock for cache='%s', project='%s'".formatted(
+						cacheDirectory, getProject().absoluteProjectPath(getProject().getPath())
+				)
+		);
 	}
 
-	private boolean getAndLock() {
-		final Path lock = getLockFile();
-
-		if (Files.exists(lock)) {
-			return true;
+	record LockFile(Path file, String description) {
+		@Override
+		public String toString() {
+			return this.description;
 		}
+	}
+
+	enum LockResult {
+		// acquired immediately or after waiting for another process to release
+		ACQUIRED_CLEAN,
+		// already owned by current pid
+		ACQUIRED_ALREADY_OWNED,
+		// acquired due to current owner not existing
+		ACQUIRED_PREVIOUS_OWNER_MISSING,
+		// acquired due to previous owner disowning the lock
+		ACQUIRED_PREVIOUS_OWNER_DISOWNED
+	}
+
+	private LockResult acquireProcessLockWaiting(LockFile lockFile) {
+		// one hour
+		return this.acquireProcessLockWaiting(lockFile, getDefaultTimeout());
+	}
+
+	private LockResult acquireProcessLockWaiting(LockFile lockFile, Duration timeout) {
+		try {
+			return this.acquireProcessLockWaiting_(lockFile, timeout);
+		} catch (final IOException e) {
+			throw new RuntimeException("Exception acquiring lock " + lockFile, e);
+		}
+	}
+
+	// Returns true if our process already owns the lock
+	@SuppressWarnings("BusyWait")
+	private LockResult acquireProcessLockWaiting_(LockFile lockFile, Duration timeout) throws IOException {
+		final long timeoutMs = timeout.toMillis();
+		final Logger logger = Logging.getLogger("loom_acquireProcessLockWaiting");
+		final long currentPid = ProcessHandle.current().pid();
+		boolean abrupt = false;
+		boolean disowned = false;
+
+		if (Files.exists(lockFile.file)) {
+			long lockingProcessId = -1;
+
+			try {
+				String lockValue = Files.readString(lockFile.file);
+
+				if ("disowned".equals(lockValue)) {
+					disowned = true;
+				} else {
+					lockingProcessId = Long.parseLong(lockValue);
+					logger.lifecycle("\"{}\" is currently held by pid '{}'.", lockFile, lockingProcessId);
+				}
+			} catch (final Exception ignored) {
+				// ignored
+			}
+
+			if (lockingProcessId == currentPid) {
+				return LockResult.ACQUIRED_ALREADY_OWNED;
+			}
+
+			Optional<ProcessHandle> handle = ProcessHandle.of(lockingProcessId);
+
+			if (disowned) {
+				logger.lifecycle("Previous process has disowned the lock due to abrupt termination.");
+				Files.deleteIfExists(lockFile.file);
+			} else if (handle.isEmpty()) {
+				logger.lifecycle("Locking process does not exist, assuming abrupt termination and deleting lock file.");
+				Files.deleteIfExists(lockFile.file);
+				abrupt = true;
+			} else {
+				ProcessUtil processUtil = ProcessUtil.create(getProject());
+				logger.lifecycle(processUtil.printWithParents(handle.get()));
+				logger.lifecycle("Waiting for lock to be released...");
+				long sleptMs = 0;
+
+				while (Files.exists(lockFile.file)) {
+					try {
+						Thread.sleep(100);
+					} catch (final InterruptedException e) {
+						Thread.currentThread().interrupt();
+					}
+
+					sleptMs += 100;
+
+					if (sleptMs >= 1000 * 60 && sleptMs % (1000 * 60) == 0L) {
+						logger.lifecycle(
+								"""
+										Have been waiting on "{}" held by pid '{}' for {} minute(s).
+										If this persists for an unreasonable length of time, kill this process, run './gradlew --stop' and then try again.""",
+								lockFile, lockingProcessId, sleptMs / 1000 / 60
+						);
+					}
+
+					if (sleptMs >= timeoutMs) {
+						throw new GradleException("Have been waiting on lock file '%s' for %s ms. Giving up as timeout is %s ms."
+								.formatted(lockFile, sleptMs, timeoutMs));
+					}
+				}
+			}
+		}
+
+		if (!Files.exists(lockFile.file.getParent())) {
+			Files.createDirectories(lockFile.file.getParent());
+		}
+
+		Files.writeString(lockFile.file, String.valueOf(currentPid));
+
+		if (disowned) {
+			return LockResult.ACQUIRED_PREVIOUS_OWNER_DISOWNED;
+		} else if (abrupt) {
+			return LockResult.ACQUIRED_PREVIOUS_OWNER_MISSING;
+		}
+
+		return LockResult.ACQUIRED_CLEAN;
+	}
+
+	private static Duration getDefaultTimeout() {
+		if (System.getenv("CI") != null) {
+			// Set a small timeout on CI, as it's unlikely going to unlock.
+			return Duration.ofMinutes(1);
+		}
+
+		return Duration.ofHours(1);
+	}
+
+	// When we fail to configure, write "disowned" to the lock file to release it from this process
+	// This allows the next run to rebuild without waiting for this process to exit
+	private void disownLock() {
+		final Path lock = getLockFile().file;
 
 		try {
-			Files.createFile(lock);
+			Files.writeString(lock, "disowned");
 		} catch (IOException e) {
-			throw new UncheckedIOException("Failed to acquire getProject() configuration lock", e);
+			throw new RuntimeException(e);
 		}
-
-		return false;
 	}
 
 	private void releaseLock() {
-		final Path lock = getLockFile();
+		final Path lock = getLockFile().file;
 
 		if (!Files.exists(lock)) {
 			return;

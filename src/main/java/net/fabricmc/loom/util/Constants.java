@@ -28,7 +28,7 @@ import org.objectweb.asm.Opcodes;
 
 public class Constants {
 	public static final String PLUGIN_ID = "org.polyfrost.loom";
-	public static final boolean PLUGIN_BETA = false;
+	public static final boolean PLUGIN_BETA = true;
 	public static final boolean PLUGIN_DEPRECATED = false;
 	public static final String LIBRARIES_BASE = "https://libraries.minecraft.net/";
 	public static final String RESOURCES_BASE = "https://resources.download.minecraft.net/";
@@ -37,6 +37,7 @@ public class Constants {
 	public static final String FABRIC_REPOSITORY = "https://maven.fabricmc.net/";
 
 	public static final int ASM_VERSION = Opcodes.ASM9;
+	public static final String RELEASE_TIME_1_3 = "2012-07-25T22:00:00+00:00";
 
 	private Constants() {
 	}

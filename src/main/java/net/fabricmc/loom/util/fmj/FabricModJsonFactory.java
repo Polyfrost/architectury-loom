@@ -36,11 +36,14 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
 import dev.architectury.loom.metadata.ModMetadataFile;
 import dev.architectury.loom.metadata.ModMetadataFiles;
 import org.gradle.api.tasks.SourceSet;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.fabricmc.loom.LoomGradlePlugin;
 import net.fabricmc.loom.util.FileSystemUtil;
@@ -49,7 +52,9 @@ import net.fabricmc.loom.util.ZipUtils;
 import net.fabricmc.loom.util.gradle.SourceSetHelper;
 
 public final class FabricModJsonFactory {
-	private static final String FABRIC_MOD_JSON = "fabric.mod.json";
+	public static final String FABRIC_MOD_JSON = "fabric.mod.json";
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(FabricModJsonFactory.class);
 
 	private FabricModJsonFactory() {
 	}
@@ -158,6 +163,11 @@ public final class FabricModJsonFactory {
 
 		try (Reader reader = Files.newBufferedReader(file.toPath(), StandardCharsets.UTF_8)) {
 			return create(LoomGradlePlugin.GSON.fromJson(reader, JsonObject.class), new FabricModJsonSource.SourceSetSource(sourceSets));
+		} catch (JsonSyntaxException e) {
+			LOGGER.warn("Failed to parse fabric.mod.json: {}", file.getAbsolutePath());
+			return null;
+		} catch (IOException e) {
+			throw new UncheckedIOException("Failed to read " + file.getAbsolutePath(), e);
 		}
 	}
 
@@ -167,7 +177,9 @@ public final class FabricModJsonFactory {
 
 	public static boolean isModJar(Path input, ModPlatform platform) {
 		if (platform.isForgeLike()) {
-			return ZipUtils.contains(input, "META-INF/mods.toml") || ZipUtils.contains(input, "mcmod.info");
+			return ZipUtils.contains(input, "META-INF/mods.toml")
+					|| ZipUtils.contains(input, "mcmod.info")
+					|| (platform == ModPlatform.NEOFORGE && ZipUtils.contains(input, "META-INF/neoforge.mods.toml"));
 		} else if (platform == ModPlatform.QUILT) {
 			return ZipUtils.contains(input, "quilt.mod.json") || isModJar(input, ModPlatform.FABRIC);
 		}
@@ -191,7 +203,9 @@ public final class FabricModJsonFactory {
 		}
 
 		if (platform.isForgeLike()) {
-			return Files.exists(fs.getPath("META-INF/mods.toml")) || Files.exists(fs.getPath("mcmod.info"));
+			return Files.exists(fs.getPath("META-INF/mods.toml"))
+					|| Files.exists(fs.getPath("mcmod.info"))
+					|| (platform == ModPlatform.NEOFORGE && Files.exists(fs.getPath("META-INF/neoforge.mods.toml")));
 		} else if (platform == ModPlatform.QUILT) {
 			return Files.exists(fs.getPath("quilt.mod.json")) || containsMod(fs, ModPlatform.FABRIC);
 		}

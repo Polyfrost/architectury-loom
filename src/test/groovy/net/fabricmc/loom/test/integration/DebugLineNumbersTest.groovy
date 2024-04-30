@@ -84,7 +84,7 @@ class DebugLineNumbersTest extends Specification implements GradleProjectTestTra
             '''
 		when:
 		// First generate sources
-		def genSources = gradle.run(task: "genSources")
+		def genSources = gradle.run(task: "genSources", args: ["--info"])
 		genSources.task(":genSources").outcome == SUCCESS
 
 		// Print out the source of the file
@@ -122,6 +122,8 @@ class DebugLineNumbersTest extends Specification implements GradleProjectTestTra
 				def result = it.get()
 				println("Breakpoint triggered: ${result.location()}")
 			}
+
+			println("All breakpoints triggered")
 		} finally {
 			// Close the debugger and target process
 			debugger.close()

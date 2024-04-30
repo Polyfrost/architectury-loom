@@ -1,7 +1,7 @@
 [versions]
 # Decompilers
 fernflower = "2.0.0"
-cfr = "0.2.1"
+cfr = "0.2.2"
 vineflower = "1.9.3"
 
 # Runtime depedencies
@@ -16,8 +16,9 @@ javax-annotations = "3.0.2"
 forge-runtime = "2.0.9"
 access-transformers = "3.0.1"
 access-transformers-new = "8.0.5"
+access-transformers-neo = "10.0.2"
 unprotect = "1.2.0"
-asm = "9.3"
+asm = "9.7"
 union-relauncher = "1.0.0"
 access-transformers-log4j = "2.17.1"
 
@@ -41,6 +42,7 @@ naming-service = { module = "dev.architectury:architectury-naming-service", vers
 mcp-annotations = { module = "dev.architectury:mcp-annotations", version.ref = "forge-runtime" }
 access-transformers = { module = "net.minecraftforge:accesstransformers", version.ref = "access-transformers" }
 access-transformers-new = { module = "net.minecraftforge:accesstransformers", version.ref = "access-transformers-new" }
+access-transformers-neo = { module = "net.neoforged.accesstransformers:at-cli", version.ref = "access-transformers-neo" }
 unprotect = { module = "io.github.juuxel:unprotect", version.ref = "unprotect" }
 asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
 union-relauncher = { module = "io.github.juuxel:union-relauncher", version.ref = "union-relauncher" }
