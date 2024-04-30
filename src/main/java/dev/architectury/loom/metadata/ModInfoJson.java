@@ -1,18 +1,5 @@
 package dev.architectury.loom.metadata;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.gson.JsonArray;
-
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-
-import net.fabricmc.loom.LoomGradlePlugin;
-import net.fabricmc.loom.configuration.ifaceinject.InterfaceInjectionProcessor;
-
-import net.fabricmc.loom.util.ModPlatform;
-
-import org.jetbrains.annotations.Nullable;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -20,6 +7,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
+
+import com.google.common.collect.ImmutableSet;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import org.jetbrains.annotations.Nullable;
+
+import net.fabricmc.loom.LoomGradlePlugin;
+import net.fabricmc.loom.configuration.ifaceinject.InterfaceInjectionProcessor;
+import net.fabricmc.loom.util.ModPlatform;
 
 public class ModInfoJson implements ModMetadataFile {
 	public static final String FILE_PATH = "mcmod.info";
@@ -52,15 +49,19 @@ public class ModInfoJson implements ModMetadataFile {
 	@Override
 	public Set<String> getIds() {
 		if (json.isEmpty()) return Set.of();
+
 		final ImmutableSet.Builder<String> modIds = ImmutableSet.builder();
+
 		for (JsonElement mod : json.asList()) {
 			if (mod.isJsonObject()) {
 				JsonObject modObject = mod.getAsJsonObject();
+
 				if (modObject.has("modid")) {
 					modIds.add(modObject.get("modid").getAsString());
 				}
 			}
 		}
+
 		return modIds.build();
 	}
 
