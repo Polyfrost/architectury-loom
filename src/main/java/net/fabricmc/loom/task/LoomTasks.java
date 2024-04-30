@@ -160,12 +160,6 @@ public abstract class LoomTasks implements Runnable {
 		});
 
 		extension.getRunConfigs().create("client", RunConfigSettings::client);
-		getProject().afterEvaluate(p -> {
-			RunConfigSettings client = extension.getRunConfigs().findByName("client");
-			if (client != null) {
-				client.startFirstThread();
-			}
-		});
 		extension.getRunConfigs().create("server", RunConfigSettings::server);
 
 		// Remove the client or server run config when not required. Done by name to not remove any possible custom run configs
