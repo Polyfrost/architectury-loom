@@ -104,9 +104,6 @@ public abstract class CompileConfiguration implements Runnable {
 			javadoc.setClasspath(main.getOutput().plus(main.getCompileClasspath()));
 		});
 
-		LoomDependencyManager dependencyManager = new LoomDependencyManager();
-		extension.setDependencyManager(dependencyManager);
-
 		afterEvaluationWithService((serviceManager) -> {
 			final ConfigContext configContext = new ConfigContextImpl(getProject(), serviceManager, extension);
 
@@ -125,6 +122,8 @@ public abstract class CompileConfiguration implements Runnable {
 				throw ExceptionUtil.createDescriptiveWrapper(RuntimeException::new, "Failed to setup Minecraft", e);
 			}
 
+			LoomDependencyManager dependencyManager = new LoomDependencyManager();
+			extension.setDependencyManager(dependencyManager);
 			dependencyManager.handleDependencies(getProject(), serviceManager);
 
 			releaseLock();

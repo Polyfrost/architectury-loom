@@ -204,10 +204,6 @@ public interface LoomGradleExtension extends LoomGradleExtensionAPI {
 	ForgeRunsProvider getForgeRunsProvider();
 	void setForgeRunsProvider(ForgeRunsProvider forgeRunsProvider);
 
-	default boolean hasLWJGL3() {
-		return getMinecraftProvider().getLibraryProvider().isLWJGL3();
-        }
-
 	/**
 	 * The mapping file that is specific to the platform settings.
 	 * It contains SRG (Forge/common) or Mojang mappings (NeoForge) as needed.
