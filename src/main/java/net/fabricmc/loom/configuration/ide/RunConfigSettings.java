@@ -337,10 +337,10 @@ public class RunConfigSettings implements Named {
 	}
 
 	/**
-	 * Add the {@code -XstartOnFirstThread} JVM argument when on OSX and using LWJGL 3.
+	 * Add the {@code -XstartOnFirstThread} JVM argument when on OSX.
 	 */
 	public void startFirstThread() {
-		if (Platform.CURRENT.getOperatingSystem().isMacOS() && extension.hasLWJGL3()) {
+		if (Platform.CURRENT.getOperatingSystem().isMacOS() && !extension.hasLWJGL2()) {
 			vmArg("-XstartOnFirstThread");
 		}
 	}

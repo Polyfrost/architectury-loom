@@ -57,6 +57,7 @@ public class LibraryProcessorManager {
 	private final RepositoryHandler repositories;
 	private final List<LibraryProcessorFactory> libraryProcessorFactories;
 	private final List<String> enabledProcessors;
+	private boolean hasLWJGL2;
 
 	public LibraryProcessorManager(Platform platform, RepositoryHandler repositories, List<LibraryProcessorFactory> libraryProcessorFactories, List<String> enabledProcessors) {
 		this.platform = platform;
@@ -122,9 +123,22 @@ public class LibraryProcessorManager {
 			libraries = processedLibraries;
 		}
 
+		boolean lwjgl2 = false;
+		for (Library library : libraries) {
+			lwjgl2 = library.name().startsWith("org.lwjgl.lwjgl:lwjgl:2.");
+			if (lwjgl2) {
+				break;
+			}
+		}
+		hasLWJGL2 = lwjgl2;
+
 		return Collections.unmodifiableList(libraries);
 	}
 
 	public interface LibraryProcessorFactory extends BiFunction<Platform, LibraryContext, LibraryProcessor> {
+	}
+
+	public boolean hasLWJGL2() {
+		return hasLWJGL2;
 	}
 }

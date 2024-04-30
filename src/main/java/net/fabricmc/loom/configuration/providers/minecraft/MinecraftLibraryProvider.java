@@ -52,7 +52,6 @@ public class MinecraftLibraryProvider {
 	private final Project project;
 	private final MinecraftProvider minecraftProvider;
 	private final LibraryProcessorManager processorManager;
-	private boolean isLWJGL3 = false;
 
 	public MinecraftLibraryProvider(MinecraftProvider minecraftProvider, Project project) {
 		this.project = project;
@@ -121,9 +120,6 @@ public class MinecraftLibraryProvider {
 
 	private List<Library> processLibraries(List<Library> libraries) {
 		final LibraryContext libraryContext = new LibraryContext(minecraftProvider.getVersionInfo(), JavaVersion.current());
-		if (libraryContext.usesLWJGL3()) {
-			isLWJGL3 = true;
-		}
 		return processorManager.processLibraries(libraries, libraryContext);
 	}
 
@@ -165,7 +161,7 @@ public class MinecraftLibraryProvider {
 		}
 	}
 
-	public boolean isLWJGL3() {
-		return isLWJGL3;
+	public LibraryProcessorManager getProcessorManager() {
+		return processorManager;
 	}
 }
