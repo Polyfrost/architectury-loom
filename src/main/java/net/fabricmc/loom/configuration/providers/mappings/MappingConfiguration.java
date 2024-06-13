@@ -57,7 +57,7 @@ import net.fabricmc.loom.LoomGradleExtension;
 import net.fabricmc.loom.LoomGradlePlugin;
 import net.fabricmc.loom.api.mappings.layered.MappingContext;
 import net.fabricmc.loom.configuration.DependencyInfo;
-import net.fabricmc.loom.configuration.providers.forge.FieldMigratedMappingConfiguration;
+import net.fabricmc.loom.configuration.providers.forge.ForgeMigratedMappingConfiguration;
 import net.fabricmc.loom.configuration.providers.forge.SrgProvider;
 import net.fabricmc.loom.configuration.providers.mappings.tiny.MappingsMerger;
 import net.fabricmc.loom.configuration.providers.mappings.tiny.TinyJarInfo;
@@ -130,7 +130,7 @@ public class MappingConfiguration {
 		String mappingsIdentifier;
 
 		if (extension.isForgeLike()) {
-			mappingsIdentifier = FieldMigratedMappingConfiguration.createForgeMappingsIdentifier(extension, mappingsName, version, getMappingsClassifier(dependency, jarInfo.v2()), minecraftProvider.minecraftVersion());
+			mappingsIdentifier = createForgeMappingsIdentifier(extension, mappingsName, version, getMappingsClassifier(dependency, jarInfo.v2()), minecraftProvider.minecraftVersion());
 		} else {
 			mappingsIdentifier = createMappingsIdentifier(mappingsName, version, getMappingsClassifier(dependency, jarInfo.v2()), minecraftProvider.minecraftVersion());
 		}
@@ -144,7 +144,7 @@ public class MappingConfiguration {
 		MappingConfiguration mappingConfiguration;
 
 		if (extension.isForgeLike()) {
-			mappingConfiguration = new FieldMigratedMappingConfiguration(mappingsIdentifier, workingDir);
+			mappingConfiguration = new ForgeMigratedMappingConfiguration(mappingsIdentifier, workingDir);
 		} else {
 			mappingConfiguration = new MappingConfiguration(mappingsIdentifier, workingDir);
 		}
@@ -517,6 +517,13 @@ public class MappingConfiguration {
 		//          mappingsName      . mcVersion . version        classifier
 		// Example: net.fabricmc.yarn . 1_16_5    . 1.16.5+build.5 -v2
 		return mappingsName + "." + minecraftVersion.replace(' ', '_').replace('.', '_').replace('-', '_') + "." + version + classifier;
+	}
+
+	protected static String createForgeMappingsIdentifier(LoomGradleExtension extension, String mappingsName, String version, String classifier, String minecraftVersion) {
+		final String base = createMappingsIdentifier(mappingsName, version, classifier, minecraftVersion);
+		final String platform = extension.getPlatform().get().id();
+		final String forgeVersion = extension.getForgeProvider().getVersion().getCombined();
+		return base + "-" + platform + "-" + forgeVersion;
 	}
 
 	public String mappingsIdentifier() {
