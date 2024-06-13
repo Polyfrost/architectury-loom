@@ -53,7 +53,7 @@ group = "org.polyfrost"
 def baseVersion = '1.6'
 
 def ENV = System.getenv()
-version = baseVersion + ".polyfrost.1"
+version = baseVersion + ".polyfrost.2"
 
 logger.lifecycle(":building plugin v${version}")
 
