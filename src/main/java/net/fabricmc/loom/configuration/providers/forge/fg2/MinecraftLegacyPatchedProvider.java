@@ -349,11 +349,6 @@ public class MinecraftLegacyPatchedProvider extends MinecraftPatchedProvider {
 		}
 	}
 
-	private static Path[] getMinecraftCompileLibraries(Project project) {
-		return project.getConfigurations().getByName(Constants.Configurations.MINECRAFT_COMPILE_LIBRARIES).getFiles()
-				.stream().map(File::toPath).toArray(Path[]::new);
-	}
-
 	@Override
 	public Path getMinecraftIntermediateJar() {
 		throw new UnsupportedOperationException();
