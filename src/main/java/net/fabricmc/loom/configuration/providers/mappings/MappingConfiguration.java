@@ -35,6 +35,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -42,10 +43,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import org.apache.tools.ant.util.StringUtils;
 import com.google.common.base.Stopwatch;
 import com.google.gson.JsonObject;
 import dev.architectury.loom.util.MappingOption;
-import org.apache.tools.ant.util.StringUtils;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.jetbrains.annotations.Nullable;
@@ -211,31 +212,20 @@ public class MappingConfiguration {
 			// Generate the Mojmap-merged mappings if needed.
 			// Note that this needs to happen before manipulateMappings for FieldMigratedMappingConfiguration.
 			if (Files.notExists(tinyMappingsWithMojang) || extension.refreshDeps()) {
-				final Stopwatch stopwatch = Stopwatch.createStarted();
-				final MappingContext context = new GradleMappingContext(project, "tmp-neoforge");
-
-				try (Tiny2FileWriter writer = new Tiny2FileWriter(Files.newBufferedWriter(tinyMappingsWithMojang), false)) {
-					ForgeMappingsMerger.mergeMojang(context, tinyMappings, null, true).accept(writer);
-				}
-
-				project.getLogger().info(":merged mojang mappings in {}", stopwatch.stop());
+				mergeMojang(project, tinyMappings, tinyMappingsWithMojang);
 			}
 		}
 
 		if (extension.shouldGenerateSrgTiny()) {
 			if (Files.notExists(tinyMappingsWithSrg) || extension.refreshDeps()) {
-				// Merge tiny mappings with srg
-				Stopwatch stopwatch = Stopwatch.createStarted();
-				// FIXME why is this special case necessary?
-				ForgeMappingsMerger.ExtraMappings extraMappings = extension.isLegacyForge()
-						? null
-						: ForgeMappingsMerger.ExtraMappings.ofMojmapTsrg(getMojmapSrgFileIfPossible(project));
-
-				try (Tiny2FileWriter writer = new Tiny2FileWriter(Files.newBufferedWriter(tinyMappingsWithSrg), false)) {
-					ForgeMappingsMerger.mergeSrg(getRawSrgFile(project), tinyMappings, extraMappings, true).accept(writer);
+				if (extension.isForge() && extension.getForgeProvider().usesMojangAtRuntime()) {
+					Path tmp = Files.createTempFile("mappings", ".tiny");
+					mergeMojang(project, tinyMappings, tmp);
+					mergeSrg(project, tmp, tinyMappingsWithSrg);
+					Files.deleteIfExists(tmp);
+				} else {
+					mergeSrg(project, tinyMappings, tinyMappingsWithSrg);
 				}
-
-				project.getLogger().info(":merged srg mappings in " + stopwatch.stop());
 			}
 		}
 
@@ -289,6 +279,34 @@ public class MappingConfiguration {
 		} catch (IOException e) {
 			throw new UncheckedIOException(e);
 		}
+	}
+
+	private static void mergeMojang(Project project, Path source, Path target) throws IOException {
+		final Stopwatch stopwatch = Stopwatch.createStarted();
+		final MappingContext context = new GradleMappingContext(project, "tmp-mojang");
+
+		try (Tiny2FileWriter writer = new Tiny2FileWriter(Files.newBufferedWriter(target, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING), false)) {
+			ForgeMappingsMerger.mergeMojang(context, source, null, true).accept(writer);
+		}
+
+		project.getLogger().info(":merged mojang mappings in {}", stopwatch.stop());
+	}
+
+	private static void mergeSrg(Project project, Path source, Path target) throws IOException {
+		LoomGradleExtension extension = LoomGradleExtension.get(project);
+
+		Stopwatch stopwatch = Stopwatch.createStarted();
+
+		// FIXME why is this special case necessary?
+		ForgeMappingsMerger.ExtraMappings extraMappings = extension.isLegacyForge()
+				? null
+				: ForgeMappingsMerger.ExtraMappings.ofMojmapTsrg(getMojmapSrgFileIfPossible(project));
+
+		try (Tiny2FileWriter writer = new Tiny2FileWriter(Files.newBufferedWriter(target, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING), false)) {
+			ForgeMappingsMerger.mergeSrg(getRawSrgFile(project), source, extraMappings, true).accept(writer);
+		}
+
+		project.getLogger().info(":merged srg mappings in " + stopwatch.stop());
 	}
 
 	protected void manipulateMappings(Project project, Path mappingsJar) throws IOException {
