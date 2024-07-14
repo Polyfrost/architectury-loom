@@ -28,7 +28,7 @@ import org.objectweb.asm.Opcodes;
 
 public class Constants {
 	public static final String PLUGIN_ID = "org.polyfrost.loom";
-	public static final boolean PLUGIN_BETA = false;
+	public static final boolean PLUGIN_BETA = true;
 	public static final boolean PLUGIN_DEPRECATED = false;
 	public static final String LIBRARIES_BASE = "https://libraries.minecraft.net/";
 	public static final String RESOURCES_BASE = "https://resources.download.minecraft.net/";
@@ -185,11 +185,6 @@ public class Constants {
 		public static final int MIN_UNION_RELAUNCHER_VERSION = 49;
 		public static final String UNION_RELAUNCHER_MAIN_CLASS = "juuxel.unionrelauncher.UnionRelauncher";
 		public static final String UNION_RELAUNCHER_MAIN_CLASS_PROPERTY = "unionRelauncher.mainClass";
-
-		/**
-		 * The minimum version of Forge that uses "mojang" as the namespace in production.
-		 */
-		public static final int MIN_USE_MOJANG_NS_VERSION = 50;
 
 		private Forge() {
 		}
