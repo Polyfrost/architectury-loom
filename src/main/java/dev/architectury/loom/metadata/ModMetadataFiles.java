@@ -25,7 +25,6 @@ public final class ModMetadataFiles {
 	private static final Map<String, Function<byte[], ModMetadataFile>> SINGLE_FILE_METADATA_TYPES = ImmutableMap.<String, Function<byte[], ModMetadataFile>>builder()
 			.put(QuiltModJson.FILE_NAME, QuiltModJson::of)
 			.put(ArchitecturyCommonJson.FILE_NAME, ArchitecturyCommonJson::of)
-			.put(ModInfoJson.FILE_PATH, onError(ModInfoJson::of, "Could not load mcmod.info", () -> new ErroringModMetadataFile("mcmod.info")))
 			.put(ModsToml.FILE_PATH, onError(ModsToml::of, "Could not load mods.toml", () -> new ErroringModMetadataFile("mods.toml")))
 			.put(ModsToml.NEOFORGE_FILE_PATH, onError(ModsToml::of, "Could not load neoforge.mods.toml", () -> new ErroringModMetadataFile("neoforge.mods.toml")))
 			.put(McmodInfo.FILE_PATH, onError(McmodInfo::of, "Could not load mcmod.info", () -> new ErroringModMetadataFile("mcmod.info")))
