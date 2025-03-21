@@ -3,6 +3,8 @@
 A fork of [Architectury Loom](https://github.com/architectury/architectury-loom/), primarily to support legacy forge versions
 but with some other changes for our purposes. Used by [Polyfrost Gradle Toolkit](https://github.com/Polyfrost/polyfrost-gradle-toolkit/).
 
+Fork of Essential Loom to support Legacy Fabric. **Starting from Loom 1.8+ this fork is no longer necessary.**
+
 # Original Readme
 
 ---
